@@ -1,4 +1,4 @@
-# Correo Temporal Mini v13 — PWA
+# Correo Temporal Mini v14 — PWA
 
 Esta versión está preparada para usarse e instalarse tanto en PC como en celular.
 
@@ -63,3 +63,17 @@ Mail.tm exige atribución visible; la app mantiene el enlace a Mail.tm en el pie
 - Mantiene el mismo estilo visual de Correo Temporal.
 - Botones: **Cancelar** y **Generar nuevo correo**.
 - Ya no aparece el texto “djkados.github.io dice”.
+
+
+## Cambio v14
+### Correos recientes
+- Buscador entre los últimos 10 correos.
+- Flechas izquierda/derecha para recorrer toda la fila.
+- Scroll suave y selección directa de cualquier bandeja reciente.
+
+### Dominios
+- `@mail123.site` destacado como dominio `.site`.
+- Filtros rápidos: Todos / `.site` / `.shop` / `.us`.
+- Los filtros muestran únicamente dominios realmente ofrecidos por Mail123 o Mail.tm.
+- Si `.shop` o `.us` no están disponibles en los proveedores conectados, el botón queda deshabilitado en lugar de generar una dirección inválida.
+- El botón “Dominios” vuelve a consultar la lista en vivo.

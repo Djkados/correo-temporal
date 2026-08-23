@@ -91,6 +91,29 @@
     .recent-title{font-size:12px;text-transform:uppercase;letter-spacing:.1em;color:var(--muted);font-weight:800}
     .recent-list{display:flex;gap:8px;overflow-x:auto;padding:2px 1px 5px;scrollbar-width:none}
     .recent-list::-webkit-scrollbar{display:none}
+    .recent-toolbar{
+      display:grid;grid-template-columns:minmax(0,1fr) auto;gap:10px;
+      align-items:center;margin-bottom:9px
+    }
+    .recent-search{
+      min-height:42px;width:100%;border:1px solid var(--line);border-radius:12px;
+      background:#101a30;color:var(--text);padding:0 12px;outline:none;font-size:12px
+    }
+    .recent-search:focus{border-color:#4b79b9}
+    .recent-nav{display:flex;gap:7px}
+    .recent-nav-btn{
+      width:42px;height:42px;border:1px solid var(--line);border-radius:12px;
+      background:#101a30;color:var(--text);font-size:20px;font-weight:900;cursor:pointer
+    }
+    .recent-nav-btn:disabled{opacity:.32;cursor:default}
+    .recent-list{scroll-behavior:smooth;scroll-snap-type:x proximity}
+    .recent-chip{scroll-snap-align:start}
+    .recent-empty{padding:10px 2px;color:var(--muted);font-size:12px}
+    @media(max-width:639px){
+      .recent-toolbar{grid-template-columns:1fr}
+      .recent-nav{justify-content:flex-end}
+    }
+
     .recent-chip{
       flex:0 0 auto;max-width:240px;border:1px solid var(--line);background:#101a30;color:#cfd8e7;
       border-radius:13px;padding:9px 11px;font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
@@ -233,6 +256,16 @@
     }
     .domain-select:focus{border-color:#4b79b9}
     .domain-note{margin-top:8px;color:var(--muted);font-size:11px;line-height:1.45}
+    .tld-row{
+      display:flex;flex-wrap:wrap;gap:7px;margin-top:10px
+    }
+    .tld-btn{
+      min-height:34px;border:1px solid var(--line);border-radius:999px;background:#101a30;
+      color:var(--muted);padding:0 11px;font-size:11px;font-weight:800;cursor:pointer
+    }
+    .tld-btn.active{border-color:#4b79b9;background:rgba(93,169,255,.12);color:#fff}
+    .tld-btn[disabled]{opacity:.38;cursor:not-allowed}
+
     .domain-refresh{min-width:118px}
     .provider-badge{
       display:inline-flex;align-items:center;gap:5px;margin-left:6px;padding:3px 7px;border-radius:999px;
@@ -273,6 +306,12 @@
       <button id="reloadDomainsBtn" class="btn ghost domain-refresh" type="button">↻ Dominios</button>
     </div>
     <div id="domainNote" class="domain-note">Cargando dominios disponibles…</div>
+    <div class="tld-row" aria-label="Filtrar dominios por extensión">
+      <button class="tld-btn active" data-tld="all" type="button">Todos</button>
+      <button class="tld-btn" data-tld=".site" type="button">.site</button>
+      <button class="tld-btn" data-tld=".shop" type="button">.shop</button>
+      <button class="tld-btn" data-tld=".us" type="button">.us</button>
+    </div>
   </section>
 
   <section id="noMailbox" class="card generate">
@@ -308,7 +347,24 @@
         <div class="recent-title">Correos recientes</div>
         <div id="recentCount" class="count"></div>
       </div>
+
+      <div class="recent-toolbar">
+        <input
+          id="recentSearch"
+          class="recent-search"
+          type="search"
+          placeholder="Buscar entre los últimos 10 correos…"
+          autocomplete="off"
+          spellcheck="false"
+        />
+        <div class="recent-nav">
+          <button id="recentPrevBtn" class="recent-nav-btn" type="button" aria-label="Ver correos anteriores">‹</button>
+          <button id="recentNextBtn" class="recent-nav-btn" type="button" aria-label="Ver más correos">›</button>
+        </div>
+      </div>
+
       <div id="recentList" class="recent-list"></div>
+      <div id="recentEmpty" class="recent-empty" hidden>No encontré correos con esa búsqueda.</div>
     </div>
   </section>
 
@@ -406,13 +462,14 @@
   let mail123Domains = [];
   let mailTmDomains = [];
   let domainsLoaded = false;
+  let activeTldFilter = 'all';
 
   const $ = id => document.getElementById(id);
   const el = {
     noMailbox:$('noMailbox'), mailbox:$('mailbox'), inboxWrap:$('inboxWrap'), offlineBanner:$('offlineBanner'), installBtn:$('installBtn'), installHint:$('installHint'),
     generateBtn:$('generateBtn'), emailAddress:$('emailAddress'),
     copyEmailBtn:$('copyEmailBtn'), mailCount:$('mailCount'), livePill:$('livePill'), providerBadge:$('providerBadge'),
-    refreshBtn:$('refreshBtn'), newBtn:$('newBtn'), waitBtn:$('waitBtn'), recentWrap:$('recentWrap'), recentList:$('recentList'), recentCount:$('recentCount'),
+    refreshBtn:$('refreshBtn'), newBtn:$('newBtn'), waitBtn:$('waitBtn'), recentWrap:$('recentWrap'), recentList:$('recentList'), recentCount:$('recentCount'), recentSearch:$('recentSearch'), recentPrevBtn:$('recentPrevBtn'), recentNextBtn:$('recentNextBtn'), recentEmpty:$('recentEmpty'),
     emptyInbox:$('emptyInbox'), messageList:$('messageList'), lastUpdate:$('lastUpdate'),
     modal:$('modal'), closeModalBtn:$('closeModalBtn'),
     modalSubject:$('modalSubject'), modalMeta:$('modalMeta'), modalBody:$('modalBody'),
@@ -498,6 +555,90 @@
     history = history.slice(0,10);
     saveHistory();
     renderHistory();
+  }
+
+  function loadOtpCache(){
+    try{
+      otpCache = JSON.parse(localStorage.getItem(OTP_CACHE_KEY) || '{}') || {};
+    }catch{ otpCache = {}; }
+  }
+
+  function saveOtpCache(){
+    // Limita el cache para evitar crecimiento indefinido.
+    const entries = Object.entries(otpCache)
+      .sort((a,b) => (b[1]?.ts || 0) - (a[1]?.ts || 0))
+      .slice(0,80);
+    otpCache = Object.fromEntries(entries);
+    localStorage.setItem(OTP_CACHE_KEY, JSON.stringify(otpCache));
+  }
+
+  function otpCacheKey(address, messageId){
+    return `${normalizeEmail(address)}::${String(messageId)}`;
+  }
+
+  function recentFilteredItems(){
+    const q = String(el.recentSearch?.value || '').trim().toLowerCase();
+    const valid = history.filter(item => isValidEmail(item.address)).slice(0,10);
+    return q ? valid.filter(item => item.address.toLowerCase().includes(q)) : valid;
+  }
+
+  function updateRecentNavState(){
+    const maxScroll = Math.max(0, el.recentList.scrollWidth - el.recentList.clientWidth);
+    el.recentPrevBtn.disabled = el.recentList.scrollLeft <= 4;
+    el.recentNextBtn.disabled = el.recentList.scrollLeft >= maxScroll - 4;
+  }
+
+  function renderHistory(){
+    el.recentList.innerHTML = '';
+
+    const allValid = history.filter(item => isValidEmail(item.address)).slice(0,10);
+    const valid = recentFilteredItems();
+
+    el.recentWrap.hidden = allValid.length === 0;
+    el.recentCount.textContent = allValid.length ? `${allValid.length}/10` : '';
+    el.recentEmpty.hidden = valid.length > 0 || allValid.length === 0;
+
+    valid.forEach(item => {
+      const btn = document.createElement('button');
+      btn.className = 'recent-chip' + (box?.address === item.address ? ' current' : '');
+      btn.textContent = item.address;
+      btn.title = `Abrir ${item.address}`;
+
+      btn.addEventListener('click', async () => {
+        if (box?.address === item.address){
+          await refresh(true);
+          return;
+        }
+
+        stopWaitMode();
+
+        box = {
+          ...(item.box || {}),
+          address:item.address,
+          provider:item.box?.provider || inferProviderFromAddress(item.address),
+          domain:item.box?.domain || item.address.split('@')[1] || '',
+          createdAt:item.box?.createdAt || Date.now()
+        };
+
+        save();
+        el.emailAddress.value = item.address;
+        render();
+        renderMessages([]);
+        rememberAddress(item.address);
+        lastMessageIds = new Set();
+        await refresh(true);
+      });
+
+      el.recentList.appendChild(btn);
+    });
+
+    requestAnimationFrame(updateRecentNavState);
+  }
+
+  function scrollRecent(direction){
+    const amount = Math.max(280, Math.floor(el.recentList.clientWidth * 0.72));
+    el.recentList.scrollBy({left:direction * amount, behavior:'smooth'});
+    setTimeout(updateRecentNavState, 350);
   }
 
   function loadOtpCache(){
@@ -699,47 +840,110 @@
     return option;
   }
 
+  function domainPassesTld(domain){
+    if (activeTldFilter === 'all') return true;
+    return String(domain || '').toLowerCase().endsWith(activeTldFilter);
+  }
+
+  function availableDomainPool(){
+    const pool = [
+      ...(mail123Domains.length ? mail123Domains : MAIL123_FALLBACK_DOMAINS)
+        .map(domain => ({provider:'mail123',domain})),
+      ...mailTmDomains.map(domain => ({provider:'mailtm',domain}))
+    ];
+    return pool.filter(item => domainPassesTld(item.domain));
+  }
+
   function populateDomainSelect(){
     const previous = localStorage.getItem(DOMAIN_PREF_KEY) || el.domainSelect.value || 'mail123:mail123.fr';
     el.domainSelect.innerHTML = '';
 
-    el.domainSelect.appendChild(domainOption('mail123:mail123.fr', '@mail123.fr ⭐ Recomendado'));
-    el.domainSelect.appendChild(domainOption('auto', 'Automático · todos los disponibles'));
+    // Favoritos útiles arriba.
+    if (activeTldFilter === 'all' || 'mail123.fr'.endsWith(activeTldFilter)){
+      el.domainSelect.appendChild(domainOption('mail123:mail123.fr', '@mail123.fr ⭐ Recomendado'));
+    }
+    if ((mail123Domains.includes('mail123.site') || MAIL123_FALLBACK_DOMAINS.includes('mail123.site')) &&
+        domainPassesTld('mail123.site')){
+      el.domainSelect.appendChild(domainOption('mail123:mail123.site', '@mail123.site ⭐ .site'));
+    }
 
-    const group123 = document.createElement('optgroup');
-    group123.label = `Mail123 · ${mail123Domains.length || MAIL123_FALLBACK_DOMAINS.length} dominios`;
-    (mail123Domains.length ? mail123Domains : MAIL123_FALLBACK_DOMAINS)
-      .filter(d => d !== 'mail123.fr')
-      .forEach(d => group123.appendChild(domainOption(`mail123:${d}`, `@${d}`)));
-    el.domainSelect.appendChild(group123);
+    el.domainSelect.appendChild(domainOption('auto', `Automático${activeTldFilter === 'all' ? '' : ` · ${activeTldFilter}`}`));
 
-    if (mailTmDomains.length){
+    const filtered123 = (mail123Domains.length ? mail123Domains : MAIL123_FALLBACK_DOMAINS)
+      .filter(domainPassesTld)
+      .filter(d => d !== 'mail123.fr' && d !== 'mail123.site');
+
+    if (filtered123.length){
+      const group123 = document.createElement('optgroup');
+      group123.label = `Mail123 · ${filtered123.length} dominio${filtered123.length === 1 ? '' : 's'}`;
+      filtered123.forEach(d => group123.appendChild(domainOption(`mail123:${d}`, `@${d}`)));
+      el.domainSelect.appendChild(group123);
+    }
+
+    const filteredTm = mailTmDomains.filter(domainPassesTld);
+    if (filteredTm.length){
       const groupTm = document.createElement('optgroup');
-      groupTm.label = `Mail.tm · ${mailTmDomains.length} dominio${mailTmDomains.length === 1 ? '' : 's'} alternativo${mailTmDomains.length === 1 ? '' : 's'}`;
-      mailTmDomains.forEach(d => groupTm.appendChild(domainOption(`mailtm:${d}`, `@${d} · Mail.tm`)));
+      groupTm.label = `Mail.tm · ${filteredTm.length} dominio${filteredTm.length === 1 ? '' : 's'}`;
+      filteredTm.forEach(d => groupTm.appendChild(domainOption(`mailtm:${d}`, `@${d} · Mail.tm`)));
       el.domainSelect.appendChild(groupTm);
     }
 
     const exists = [...el.domainSelect.options].some(o => o.value === previous);
-    el.domainSelect.value = exists ? previous : 'mail123:mail123.fr';
+    const firstNonAuto = [...el.domainSelect.options].find(o => o.value !== 'auto');
+    el.domainSelect.value = exists ? previous : (firstNonAuto?.value || 'auto');
+
     localStorage.setItem(DOMAIN_PREF_KEY, el.domainSelect.value);
     updateDomainNote();
+    updateTldButtons();
+  }
+
+  function updateTldButtons(){
+    const allDomains = [
+      ...(mail123Domains.length ? mail123Domains : MAIL123_FALLBACK_DOMAINS),
+      ...mailTmDomains
+    ];
+
+    document.querySelectorAll('.tld-btn').forEach(btn => {
+      const tld = btn.dataset.tld;
+      btn.classList.toggle('active', tld === activeTldFilter);
+
+      if (tld === 'all'){
+        btn.disabled = false;
+        return;
+      }
+
+      btn.disabled = !allDomains.some(d => String(d).toLowerCase().endsWith(tld));
+      btn.title = btn.disabled
+        ? `Ningún proveedor conectado ofrece ${tld} ahora`
+        : `Mostrar dominios ${tld}`;
+    });
   }
 
   function updateDomainNote(){
-    const value = el.domainSelect.value || 'mail123:mail123.fr';
+    const value = el.domainSelect.value || 'auto';
+    const pool = availableDomainPool();
+
+    if (!pool.length && activeTldFilter !== 'all'){
+      el.domainNote.textContent = `Ahora mismo Mail123/Mail.tm no ofrecen dominios ${activeTldFilter}. No genero dominios falsos: cambia a otra extensión o pulsa Dominios para volver a consultar.`;
+      return;
+    }
+
     if (value === 'auto'){
-      el.domainNote.textContent = `Automático puede elegir entre ${mail123Domains.length || MAIL123_FALLBACK_DOMAINS.length} dominios de Mail123${mailTmDomains.length ? ` y ${mailTmDomains.length} de Mail.tm` : ''}.`;
+      const suffix = activeTldFilter === 'all' ? '' : ` con extensión ${activeTldFilter}`;
+      el.domainNote.textContent = `Automático elegirá entre ${pool.length} dominio${pool.length === 1 ? '' : 's'} disponible${pool.length === 1 ? '' : 's'}${suffix}.`;
       return;
     }
 
     const [provider, domain] = value.split(':');
+
     if (provider === 'mailtm'){
-      el.domainNote.textContent = `Alternativo Mail.tm: @${domain}. La app guarda localmente las credenciales temporales para poder volver a abrir esa bandeja.`;
+      el.domainNote.textContent = `Alternativo Mail.tm: @${domain}. La app guarda localmente las credenciales temporales para reabrir la bandeja.`;
     }else if (domain === 'mail123.fr'){
-      el.domainNote.textContent = '@mail123.fr queda como favorito porque es el que te está funcionando con Spotify.';
+      el.domainNote.textContent = '@mail123.fr queda como favorito porque te ha funcionado bien con Spotify.';
+    }else if (domain === 'mail123.site'){
+      el.domainNote.textContent = '@mail123.site es un dominio .site activo de Mail123.';
     }else{
-      el.domainNote.textContent = `Mail123: @${domain}. Si una plataforma lo rechaza, cambia aquí a @mail123.fr u otro dominio.`;
+      el.domainNote.textContent = `Mail123: @${domain}. Si una plataforma lo rechaza, prueba @mail123.fr, @mail123.site u otro dominio disponible.`;
     }
   }
 
@@ -824,10 +1028,7 @@
     let selection = el.domainSelect.value || 'mail123:mail123.fr';
 
     if (selection === 'auto'){
-      const pool = [
-        ...mail123Domains.map(domain => ({provider:'mail123',domain})),
-        ...mailTmDomains.map(domain => ({provider:'mailtm',domain}))
-      ];
+      const pool = availableDomainPool();
       const pick = pool[Math.floor(Math.random() * pool.length)] || {provider:'mail123',domain:'mail123.fr'};
       selection = `${pick.provider}:${pick.domain}`;
     }
@@ -1944,6 +2145,23 @@
   window.addEventListener('offline', updateOnlineState);
   el.installBtn.addEventListener('click', installApp);
 
+
+  el.recentSearch.addEventListener('input', () => {
+    el.recentList.scrollLeft = 0;
+    renderHistory();
+  });
+
+  el.recentPrevBtn.addEventListener('click', () => scrollRecent(-1));
+  el.recentNextBtn.addEventListener('click', () => scrollRecent(1));
+  el.recentList.addEventListener('scroll', () => requestAnimationFrame(updateRecentNavState));
+
+  document.querySelectorAll('.tld-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      if (btn.disabled) return;
+      activeTldFilter = btn.dataset.tld || 'all';
+      populateDomainSelect();
+    });
+  });
 
   el.domainSelect.addEventListener('change', () => {
     localStorage.setItem(DOMAIN_PREF_KEY, el.domainSelect.value);
