@@ -1,4 +1,4 @@
-# Correo Temporal Mini v25 — PWA
+# Correo Temporal Mini v26 — PWA
 
 Esta versión está preparada para usarse e instalarse tanto en PC como en celular.
 
@@ -251,3 +251,20 @@ Esta versión requiere actualizar dos partes:
 
 ### Nota sobre Generator.email
 Generator.email es útil como servicio manual y ofrece muchos dominios, pero no publica una API oficial documentada. No se integra mediante scraping para evitar una dependencia frágil.
+
+
+## Cambio v26 — DuckMail reemplaza TempMail.lol
+- TempMail.lol se retira del modo Automático porque su nivel gratuito bloquea solicitudes desde la red compartida de Cloudflare.
+- Se integra **DuckMail** mediante su API oficial.
+- DuckMail no requiere API key para usar dominios públicos.
+- Las cuentas DuckMail creadas por la app duran **3 días** (`expiresIn: 259200`).
+- Los mensajes de DuckMail se conservan hasta 3 días según la documentación del proveedor.
+- El Worker consulta dinámicamente `/domains`, crea la cuenta, obtiene Bearer token y lee mensajes/detalles.
+- DuckMail entra en el selector y en Automático solo cuando devuelve dominios activos.
+- Mail123 y Mailnesia siguen como gestores principales.
+- Guerrilla continúa fuera del Automático.
+- Worker: **Correo Temporal API v19**.
+- Frontend: **v26**.
+
+### TempMail.lol
+Puede volver a habilitarse en el futuro si se usa una API key de pago o un backend cuya red sea aceptada por su nivel gratuito, pero ya no afecta la experiencia normal.

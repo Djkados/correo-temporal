@@ -546,7 +546,7 @@
       <div>
         <div class="eyebrow">Configuración</div>
         <h3 id="settingsTitle">Gestores de correo</h3>
-        <div class="standalone-note">Versión <b id="appVersionLabel">v25</b></div>
+        <div class="standalone-note">Versión <b id="appVersionLabel">v26</b></div>
       </div>
       <button id="closeSettingsBtn" class="icon-btn" type="button">✕</button>
     </div>
@@ -555,7 +555,7 @@
 
     <div class="settings-block">
       <details class="worker-config">
-        <summary>☁️ Cloudflare Worker · Mailnesia + TempMail.lol</summary>
+        <summary>☁️ Cloudflare Worker · Mailnesia + DuckMail</summary>
         <div class="worker-inner">
           <div class="worker-row">
             <input id="workerUrl" class="worker-input" type="url" placeholder="https://correo-temp-api.tuusuario.workers.dev" autocomplete="off" spellcheck="false" />
@@ -607,7 +607,7 @@
   const DROPMAIL_TOKEN_KEY = 'correo_temporal_dropmail_token_v1';
   const WORKER_URL_KEY = 'correo_temporal_worker_url_v1';
   const DEFAULT_WORKER_URL = 'https://correo-temp-api.djkados11.workers.dev';
-  const APP_VERSION = '25.0';
+  const APP_VERSION = '26.0';
   const STORAGE_KEY = 'correo_temporal_mail123_v2';
   const HISTORY_KEY = 'correo_temporal_history_v2';
   const LEGACY_HISTORY_KEY = 'correo_temporal_history_v1';
@@ -634,6 +634,7 @@
   let mail123Domains = [];
   let mailTmDomains = [];
   let mailGwDomains = [];
+  let duckMailDomains = [];
   let mailnesiaDomains = [
     'mailnesia.com','airmailed.shop','bulkfinder.site','emaill.mom','mailed.click','poofmail.fit'
   ];
@@ -994,8 +995,8 @@
       const providerName =
         box.provider === 'mailtm' ? 'Mail.tm' :
         box.provider === 'mailgw' ? 'Mail.gw' :
+        box.provider === 'duckmail' ? 'DuckMail' :
         box.provider === 'mailnesia' ? 'Mailnesia' :
-        box.provider === 'tempmail_lol' ? 'TempMail.lol' :
         box.provider === 'guerrilla' ? 'Guerrilla' :
         box.provider === 'dropmail' ? 'DropMail' : 'Mail123';
 
@@ -1118,13 +1119,13 @@
     try{
       const data = await requestJSON(`${base}/health`);
       const service = data?.service || 'Correo Temp API';
-      const guerrillaSessionFix = data?.capabilities?.guerrillaCookieSession === true;
+      const duckMailReady = data?.capabilities?.duckmail === true;
 
-      el.workerStatus.textContent = guerrillaSessionFix
+      el.workerStatus.textContent = duckMailReady
         ? `Conectado · ${service}`
-        : `Conectado · ${service} · actualiza Worker para Guerrilla`;
+        : `Conectado · ${service} · actualiza Worker para DuckMail`;
 
-      el.workerStatus.className = guerrillaSessionFix
+      el.workerStatus.className = duckMailReady
         ? 'worker-status ok'
         : 'worker-status bad';
 
@@ -1169,6 +1170,7 @@
 
     if (mailTmDomains.includes(domain)) return 'mailtm';
     if (mailGwDomains.includes(domain)) return 'mailgw';
+    if (duckMailDomains.includes(domain)) return 'duckmail';
     if (mailnesiaDomains.includes(domain)) return 'mailnesia';
     if (guerrillaDomains.includes(domain)) return 'guerrilla';
     if (dropMailDomains.some(d => d.name === domain)) return 'dropmail';
@@ -1181,8 +1183,8 @@
   function providerLabel(provider){
     return provider === 'mailtm' ? 'Mail.tm' :
       provider === 'mailgw' ? 'Mail.gw' :
+      provider === 'duckmail' ? 'DuckMail' :
       provider === 'mailnesia' ? 'Mailnesia' :
-      provider === 'tempmail_lol' ? 'TempMail.lol' :
       provider === 'guerrilla' ? 'Guerrilla Mail' :
       provider === 'dropmail' ? 'DropMail' : 'Mail123';
   }
@@ -1235,26 +1237,19 @@
         .map(domain => ({provider:'mail123',domain})),
       ...mailTmDomains.map(domain => ({provider:'mailtm',domain})),
       ...mailGwDomains.map(domain => ({provider:'mailgw',domain})),
+      ...duckMailDomains.map(domain => ({provider:'duckmail',domain})),
       ...mailnesiaDomains.map(domain => ({provider:'mailnesia',domain})),
       ...dropMailDomains.map(item => ({provider:'dropmail',domain:item.name,domainId:item.id}))
     ];
 
-    // TempMail.lol escoge su dominio en el servidor, por eso solo entra
-    // cuando el usuario no está forzando una extensión concreta.
-    if (activeTldFilter === 'all'){
-      pool.push({provider:'tempmail_lol',domain:'__random__'});
-    }
-
-    return pool.filter(item =>
-      item.provider === 'tempmail_lol' || domainPassesTld(item.domain)
-    );
+    return pool.filter(item => domainPassesTld(item.domain));
   }
 
   function activeProviderItems(){
     return [
       {label:'Mail123', count:(mail123Domains.length || MAIL123_FALLBACK_DOMAINS.length)},
       {label:'Mailnesia', count:mailnesiaDomains.length},
-      {label:'TempMail.lol', count:1},
+      {label:'DuckMail', count:duckMailDomains.length},
       {label:'Mail.tm', count:mailTmDomains.length},
       {label:'Mail.gw', count:mailGwDomains.length},
       {label:'DropMail', count:dropMailDomains.length}
@@ -1294,17 +1289,17 @@
       `Automático · ${activeTldFilter === 'all' ? 'todos los gestores' : activeTldFilter}`
     ));
 
-    if (activeTldFilter === 'all'){
-      el.domainSelect.appendChild(
-        domainOption('tempmail_lol:__random__', 'TempMail.lol · dominio aleatorio · 1 hora')
-      );
-    }
 
     const groups = [
       {
         provider:'mailnesia',
         label:'Mailnesia · varios días',
         domains:sortDomains(mailnesiaDomains.filter(domainPassesTld))
+      },
+      {
+        provider:'duckmail',
+        label:'DuckMail · hasta 3 días',
+        domains:sortDomains(duckMailDomains.filter(domainPassesTld))
       },
       {
         provider:'mail123',
@@ -1363,6 +1358,7 @@
       ...(mail123Domains.length ? mail123Domains : MAIL123_FALLBACK_DOMAINS),
       ...mailTmDomains,
       ...mailGwDomains,
+      ...duckMailDomains,
       ...mailnesiaDomains,
       ...dropMailDomains.map(d => d.name)
     ];
@@ -1406,9 +1402,9 @@
     if (provider === 'mailgw'){
       el.domainNote.textContent =
         `Mail.gw: @${domain}. Es útil para verificaciones rápidas.`;
-    }else if (provider === 'tempmail_lol'){
+    }else if (provider === 'duckmail'){
       el.domainNote.textContent =
-        'TempMail.lol usa un dominio aleatorio de su pool gratuito. El buzón gratuito dura aproximadamente 1 hora.';
+        `DuckMail: @${domain}. La cuenta se crea por 3 días y la bandeja se protege con token.`;
     }else if (provider === 'mailnesia'){
       el.domainNote.textContent =
         `Mailnesia: @${domain}. Sus dominios alternativos suelen durar alrededor de un año y los mensajes normalmente algunos días.`;
@@ -1473,6 +1469,9 @@
           ? workerData.mailnesia
           : [...MAILNESIA_FALLBACK_DOMAINS];
 
+      duckMailDomains =
+        Array.isArray(workerData?.duckmail) ? workerData.duckmail : [];
+
       guerrillaDomains =
         Array.isArray(workerData?.guerrilla) && workerData.guerrilla.length
           ? workerData.guerrilla
@@ -1488,7 +1487,7 @@
       if (force){
         const total = (mail123Domains.length || MAIL123_FALLBACK_DOMAINS.length)
           + mailTmDomains.length + mailGwDomains.length
-          + mailnesiaDomains.length + guerrillaDomains.length + dropMailDomains.length;
+          + mailnesiaDomains.length + duckMailDomains.length + guerrillaDomains.length + dropMailDomains.length;
 
         toast(`Dominios disponibles: ${total}`);
       }
@@ -1615,25 +1614,6 @@
     };
   }
 
-  async function createTempMailLolMailbox(){
-    const alias = shortAlias();
-    const data = await workerJSON(`/tempmail-lol/create?prefix=${encodeURIComponent(alias)}`);
-
-    if (!data?.address || !data?.token){
-      throw new Error('TempMail.lol no devolvió una bandeja válida.');
-    }
-
-    return {
-      provider:'tempmail_lol',
-      address:normalizeEmail(data.address),
-      domain:normalizeEmail(data.address).split('@')[1] || '',
-      inboxToken:data.token,
-      expiresAt:data.expiresAt || '',
-      tempmailMessages:[],
-      createdAt:Date.now()
-    };
-  }
-
   async function buildShortMailbox(){
     let selection = el.domainSelect.value || 'mail123:mail123.fr';
 
@@ -1691,9 +1671,7 @@
 
       const pick = candidates[Math.floor(Math.random() * candidates.length)] || pool[0];
 
-      if (pick.provider !== 'tempmail_lol'){
-        localStorage.setItem(AUTO_LAST_DOMAIN_KEY, String(pick.domain || '').toLowerCase());
-      }
+      localStorage.setItem(AUTO_LAST_DOMAIN_KEY, String(pick.domain || '').toLowerCase());
       localStorage.setItem(AUTO_LAST_PROVIDER_KEY, String(pick.provider || '').toLowerCase());
 
       selection = `${pick.provider}:${pick.domain}`;
@@ -1704,8 +1682,19 @@
     if (provider === 'mailtm' || provider === 'mailgw'){
       return createAccountMailbox(provider, domain);
     }
-    if (provider === 'tempmail_lol'){
-      return createTempMailLolMailbox();
+    if (provider === 'duckmail'){
+      const data = await workerJSON(`/duckmail/create?alias=${encodeURIComponent(shortAlias())}&domain=${encodeURIComponent(domain)}`);
+      if (!data?.address || !data?.token){
+        throw new Error('DuckMail no devolvió una bandeja válida.');
+      }
+      return {
+        provider:'duckmail',
+        address:normalizeEmail(data.address),
+        domain,
+        token:data.token,
+        accountId:data.accountId || '',
+        createdAt:Date.now()
+      };
     }
     if (provider === 'mailnesia'){
       return createMailnesiaMailbox(domain);
@@ -1842,31 +1831,10 @@
       return normalizeWorkerMessages(data);
     }
 
-    if (box?.provider === 'tempmail_lol'){
-      if (!box.inboxToken) throw new Error('Esta bandeja TempMail.lol no tiene token guardado.');
-
-      const data = await workerJSON(`/tempmail-lol/messages?token=${encodeURIComponent(box.inboxToken)}`);
-      const fresh = normalizeWorkerMessages(data);
-
-      const old = Array.isArray(box.tempmailMessages) ? box.tempmailMessages : [];
-      const merged = new Map();
-
-      [...old, ...fresh].forEach((m, idx) => {
-        const key = String(m?.id || m?.messageId || `${m?.createdAt || m?.date || ''}-${m?.subject || ''}-${idx}`);
-        merged.set(key, m);
-      });
-
-      box.tempmailMessages = [...merged.values()]
-        .sort((a,b) => {
-          const ta = new Date(a?.createdAt || a?.date || 0).getTime() || 0;
-          const tb = new Date(b?.createdAt || b?.date || 0).getTime() || 0;
-          return tb - ta;
-        })
-        .slice(0,50);
-
-      save();
-      rememberAddress(box.address);
-      return box.tempmailMessages;
+    if (box?.provider === 'duckmail'){
+      if (!box.token) throw new Error('Esta bandeja DuckMail no tiene token guardado.');
+      const data = await workerJSON(`/duckmail/messages?token=${encodeURIComponent(box.token)}`);
+      return normalizeWorkerMessages(data);
     }
 
     if (box?.provider === 'guerrilla'){
@@ -1898,9 +1866,10 @@
       return data?.message || data || {};
     }
 
-    if (box?.provider === 'tempmail_lol'){
-      return (Array.isArray(box.tempmailMessages) ? box.tempmailMessages : [])
-        .find(m => String(m?.id || m?.messageId) === String(id)) || {};
+    if (box?.provider === 'duckmail'){
+      if (!box.token) throw new Error('Esta bandeja DuckMail no tiene token guardado.');
+      const data = await workerJSON(`/duckmail/message?token=${encodeURIComponent(box.token)}&id=${encodeURIComponent(id)}`);
+      return data?.message || data || {};
     }
 
     if (box?.provider === 'guerrilla'){
@@ -2094,7 +2063,7 @@
         box = {...saved, address:typed};
       }else{
         const provider = inferProviderFromAddress(typed);
-        if (provider === 'mailtm' || provider === 'mailgw' || provider === 'tempmail_lol' || provider === 'guerrilla' || provider === 'dropmail'){
+        if (provider === 'mailtm' || provider === 'mailgw' || provider === 'duckmail' || provider === 'guerrilla' || provider === 'dropmail'){
           throw new Error(`Para volver a abrir un correo de ${providerLabel(provider)} debes haberlo generado antes en este mismo dispositivo.`);
         }
         box = {
