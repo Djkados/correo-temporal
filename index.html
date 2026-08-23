@@ -48,7 +48,7 @@
     .generate h2{font-size:21px;margin:0}
     .generate p{color:var(--muted);font-size:13px;line-height:1.55;max-width:430px;margin:10px auto 18px}
     .eyebrow{font-size:12px;text-transform:uppercase;letter-spacing:.12em;color:var(--muted);font-weight:800}
-    .email-row{display:flex;align-items:center;gap:10px;margin-top:10px}
+    .email-row{display:flex;align-items:center;gap:10px;margin-top:10px;flex-wrap:wrap}
     .email{
       flex:1;min-width:0;font-size:clamp(18px,5vw,27px);font-weight:900;letter-spacing:-.5px;
       overflow-wrap:anywhere
@@ -68,6 +68,11 @@
       background:#1b2742;font-weight:780
     }
     .btn{padding:0 16px}
+    .copy-email-btn{
+      flex:0 0 auto;
+      min-width:150px;
+      white-space:nowrap;
+    }
     .btn.primary{background:linear-gradient(135deg,var(--accent),var(--accent2));color:white}
     .btn.ghost{border:1px solid var(--line);background:rgba(255,255,255,.025)}
     .btn.small{min-height:38px;border-radius:12px;padding:0 12px;font-size:13px}
@@ -163,6 +168,10 @@
     .otp{word-break:break-word}
     .spinner{width:18px;height:18px;border:2px solid rgba(255,255,255,.25);border-top-color:white;border-radius:50%;display:inline-block;animation:spin .7s linear infinite;vertical-align:-4px;margin-right:7px}
     @keyframes spin{to{transform:rotate(360deg)}}
+    @media(max-width:639px){
+      .email-row .email-input{flex:1 1 100%}
+      .copy-email-btn{width:100%;min-width:0}
+    }
     @media(min-width:640px){
       .app{padding-top:34px}
       .modal{align-items:center}
@@ -223,7 +232,7 @@
     <div class="eyebrow">Tu correo temporal</div>
     <div class="email-row">
       <input id="emailAddress" class="email email-input" type="email" inputmode="email" autocomplete="off" spellcheck="false" value="" aria-label="Correo temporal" />
-      <button id="copyEmailBtn" class="icon-btn" title="Copiar correo">📋</button>
+      <button id="copyEmailBtn" class="btn ghost copy-email-btn" title="Copiar correo">📋 Copiar correo</button>
     </div>
     <div class="email-help">Puedes editar esta dirección y tocar <b>Actualizar</b> para abrir otra bandeja temporal.</div>
 
