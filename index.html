@@ -144,6 +144,27 @@
       z-index:50;padding:10px
     }
     .modal.show{display:flex}
+    .confirm-modal{
+      position:fixed;inset:0;background:rgba(0,0,0,.72);display:none;align-items:center;justify-content:center;
+      z-index:80;padding:18px
+    }
+    .confirm-modal.show{display:flex}
+    .confirm-card{
+      width:min(460px,100%);background:#0f172a;border:1px solid var(--line);border-radius:22px;
+      padding:20px;box-shadow:0 28px 90px rgba(0,0,0,.48)
+    }
+    .confirm-icon{
+      width:54px;height:54px;border-radius:16px;display:grid;place-items:center;
+      background:rgba(93,169,255,.10);font-size:26px;margin-bottom:14px
+    }
+    .confirm-card h3{margin:0;font-size:19px}
+    .confirm-card p{margin:9px 0 0;color:var(--muted);font-size:13px;line-height:1.5}
+    .confirm-actions{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:18px}
+    .confirm-actions .btn{width:100%}
+    @media(max-width:520px){
+      .confirm-actions{grid-template-columns:1fr}
+    }
+
     .sheet{
       width:min(720px,100%);max-height:88vh;overflow:auto;background:#0d1527;border:1px solid var(--line);
       border-radius:26px 26px 18px 18px;padding:18px;box-shadow:0 -20px 80px rgba(0,0,0,.4)
@@ -342,6 +363,19 @@
   </div>
 </div>
 
+
+<div id="confirmModal" class="confirm-modal" role="dialog" aria-modal="true" aria-labelledby="confirmTitle">
+  <div class="confirm-card">
+    <div class="confirm-icon">✉️</div>
+    <h3 id="confirmTitle">¿Generar un correo nuevo?</h3>
+    <p id="confirmText">Dejarás de ver la bandeja actual en esta página, pero seguirá disponible en Correos recientes mientras el proveedor la conserve.</p>
+    <div class="confirm-actions">
+      <button id="confirmCancelBtn" class="btn ghost" type="button">Cancelar</button>
+      <button id="confirmOkBtn" class="btn primary" type="button">Generar nuevo correo</button>
+    </div>
+  </div>
+</div>
+
 <div id="toast" class="toast">Copiado</div>
 
 <script>
@@ -383,7 +417,7 @@
     modal:$('modal'), closeModalBtn:$('closeModalBtn'),
     modalSubject:$('modalSubject'), modalMeta:$('modalMeta'), modalBody:$('modalBody'),
     otpBox:$('otpBox'), otpCode:$('otpCode'), copyOtpBtn:$('copyOtpBtn'),
-    links:$('links'), mailViewTitle:$('mailViewTitle'), mailFrameWrap:$('mailFrameWrap'), mailFrame:$('mailFrame'), domainSelect:$('domainSelect'), reloadDomainsBtn:$('reloadDomainsBtn'), domainNote:$('domainNote'), toast:$('toast')
+    links:$('links'), mailViewTitle:$('mailViewTitle'), mailFrameWrap:$('mailFrameWrap'), mailFrame:$('mailFrame'), domainSelect:$('domainSelect'), reloadDomainsBtn:$('reloadDomainsBtn'), domainNote:$('domainNote'), confirmModal:$('confirmModal'), confirmCancelBtn:$('confirmCancelBtn'), confirmOkBtn:$('confirmOkBtn'), confirmTitle:$('confirmTitle'), confirmText:$('confirmText'), toast:$('toast')
   };
 
   function save(){
@@ -1744,8 +1778,44 @@
     }
   }
 
+
+  function pageConfirm({
+    title='¿Continuar?',
+    text='Esta acción hará cambios en la página.',
+    confirmLabel='Aceptar',
+    cancelLabel='Cancelar'
+  } = {}){
+    return new Promise(resolve => {
+      el.confirmTitle.textContent = title;
+      el.confirmText.textContent = text;
+      el.confirmOkBtn.textContent = confirmLabel;
+      el.confirmCancelBtn.textContent = cancelLabel;
+      el.confirmModal.classList.add('show');
+
+      const cleanup = result => {
+        el.confirmModal.classList.remove('show');
+        el.confirmOkBtn.onclick = null;
+        el.confirmCancelBtn.onclick = null;
+        resolve(result);
+      };
+
+      el.confirmOkBtn.onclick = () => cleanup(true);
+      el.confirmCancelBtn.onclick = () => cleanup(false);
+
+      el.confirmModal.onclick = e => {
+        if (e.target === el.confirmModal) cleanup(false);
+      };
+    });
+  }
+
   async function newMailbox(){
-    if (!confirm('¿Generar un correo nuevo? Dejarás de ver la bandeja actual en esta página.')) return;
+    const accepted = await pageConfirm({
+      title:'¿Generar un correo nuevo?',
+      text:'Dejarás de ver la bandeja actual en esta página, pero seguirá disponible en Correos recientes mientras el proveedor la conserve.',
+      confirmLabel:'Generar nuevo correo',
+      cancelLabel:'Cancelar'
+    });
+    if (!accepted) return;
     stopWaitMode();
     box = null; save(); stopPolling(); render(); renderMessages([]);
     await generate();

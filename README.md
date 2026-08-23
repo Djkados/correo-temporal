@@ -1,4 +1,4 @@
-# Correo Temporal Mini v12 — PWA
+# Correo Temporal Mini v13 — PWA
 
 Esta versión está preparada para usarse e instalarse tanto en PC como en celular.
 
@@ -55,3 +55,11 @@ El buzón necesita internet para consultar nuevos mensajes, incluso cuando la ap
 
 ### Nota
 Mail.tm exige atribución visible; la app mantiene el enlace a Mail.tm en el pie de página.
+
+
+## Cambio v13
+- Se eliminó la ventana `confirm()` nativa del navegador al crear un correo nuevo.
+- Ahora la confirmación aparece como un modal propio dentro de la app.
+- Mantiene el mismo estilo visual de Correo Temporal.
+- Botones: **Cancelar** y **Generar nuevo correo**.
+- Ya no aparece el texto “djkados.github.io dice”.
