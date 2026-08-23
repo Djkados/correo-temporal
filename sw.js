@@ -1,4 +1,4 @@
-const CACHE = 'correo-temporal-v14';
+const CACHE = 'correo-temporal-v15';
 const APP_SHELL = [
   './',
   './index.html',
@@ -28,7 +28,7 @@ self.addEventListener('fetch', event => {
   const req = event.request;
   const url = new URL(req.url);
 
-  if (url.hostname === 'mail123.fr' || url.hostname === 'api.mail.tm') {
+  if (url.hostname === 'mail123.fr' || url.hostname === 'api.mail.tm' || url.hostname === 'api.mail.gw' || url.hostname === 'dropmail.me') {
     event.respondWith(fetch(req));
     return;
   }

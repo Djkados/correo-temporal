@@ -265,6 +265,32 @@
     }
     .tld-btn.active{border-color:#4b79b9;background:rgba(93,169,255,.12);color:#fff}
     .tld-btn[disabled]{opacity:.38;cursor:not-allowed}
+    .provider-summary{
+      display:flex;flex-wrap:wrap;gap:7px;margin-top:10px
+    }
+    .provider-chip{
+      border:1px solid var(--line);border-radius:999px;background:#101a30;color:var(--muted);
+      padding:6px 9px;font-size:10px;font-weight:800
+    }
+    .provider-chip.ok{color:#c9f6d9;border-color:rgba(70,216,137,.25);background:rgba(70,216,137,.07)}
+    .provider-chip.off{opacity:.55}
+    .dropmail-config{
+      margin-top:10px;border:1px solid var(--line);border-radius:14px;background:#0d1628;padding:0 12px
+    }
+    .dropmail-config summary{
+      cursor:pointer;padding:11px 0;color:#cfdbed;font-size:11px;font-weight:800
+    }
+    .dropmail-inner{padding:0 0 12px}
+    .token-row{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:8px}
+    .token-input{
+      width:100%;min-height:40px;border:1px solid var(--line);border-radius:11px;background:#101a30;
+      color:var(--text);padding:0 11px;outline:none;font-size:12px
+    }
+    .token-input:focus{border-color:#4b79b9}
+    .token-note{margin-top:7px;color:var(--muted);font-size:10px;line-height:1.45}
+    .token-note a{color:#9ebeea}
+    @media(max-width:639px){.token-row{grid-template-columns:1fr}}
+
 
     .domain-refresh{min-width:118px}
     .provider-badge{
@@ -308,10 +334,28 @@
     <div id="domainNote" class="domain-note">Cargando dominios disponibles…</div>
     <div class="tld-row" aria-label="Filtrar dominios por extensión">
       <button class="tld-btn active" data-tld="all" type="button">Todos</button>
-      <button class="tld-btn" data-tld=".site" type="button">.site</button>
-      <button class="tld-btn" data-tld=".shop" type="button">.shop</button>
+      <button class="tld-btn" data-tld=".net" type="button">.net</button>
       <button class="tld-btn" data-tld=".us" type="button">.us</button>
+      <button class="tld-btn" data-tld=".cloud" type="button">.cloud</button>
+      <button class="tld-btn" data-tld=".shop" type="button">.shop</button>
+      <button class="tld-btn" data-tld=".site" type="button">.site</button>
     </div>
+
+    <div id="providerSummary" class="provider-summary"></div>
+
+    <details class="dropmail-config">
+      <summary>＋ Activar DropMail (4.º gestor · dominios rotativos)</summary>
+      <div class="dropmail-inner">
+        <div class="token-row">
+          <input id="dropmailToken" class="token-input" type="password" placeholder="Pega tu token gratuito af_…" autocomplete="off" />
+          <button id="saveDropmailTokenBtn" class="btn ghost" type="button">Guardar token</button>
+        </div>
+        <div class="token-note">
+          DropMail requiere un token gratuito desde 2026. Se guarda solo en este dispositivo.
+          <a href="https://dropmail.me/api/" target="_blank" rel="noopener noreferrer">Obtener token gratis</a>.
+        </div>
+      </div>
+    </details>
   </section>
 
   <section id="noMailbox" class="card generate">
@@ -384,9 +428,11 @@
   </div>
 
   <p class="footer">
-    Servicio de correo temporal mediante
-    <a href="https://mail123.fr" target="_blank" rel="noopener noreferrer">Mail123</a>
-    y <a href="https://mail.tm" target="_blank" rel="noopener noreferrer">Mail.tm</a>.
+    Gestores:
+    <a href="https://mail123.fr" target="_blank" rel="noopener noreferrer">Mail123</a>,
+    <a href="https://mail.tm" target="_blank" rel="noopener noreferrer">Mail.tm</a>,
+    <a href="https://mail.gw" target="_blank" rel="noopener noreferrer">Mail.gw</a>
+    y <a href="https://dropmail.me" target="_blank" rel="noopener noreferrer">DropMail</a>.
     El buzón actual queda guardado en este dispositivo.
   </p>
 </main>
@@ -438,6 +484,9 @@
 (() => {
   const MAIL123_API = 'https://mail123.fr/api/v1';
   const MAILTM_API = 'https://api.mail.tm';
+  const MAILGW_API = 'https://api.mail.gw';
+  const DROPMAIL_API = 'https://dropmail.me/api/graphql';
+  const DROPMAIL_TOKEN_KEY = 'correo_temporal_dropmail_token_v1';
   const STORAGE_KEY = 'correo_temporal_mail123_v2';
   const HISTORY_KEY = 'correo_temporal_history_v2';
   const LEGACY_HISTORY_KEY = 'correo_temporal_history_v1';
@@ -461,6 +510,9 @@
   let deferredInstallPrompt = null;
   let mail123Domains = [];
   let mailTmDomains = [];
+  let mailGwDomains = [];
+  let dropMailDomains = [];
+  let dropMailMessageCache = new Map();
   let domainsLoaded = false;
   let activeTldFilter = 'all';
 
@@ -474,7 +526,7 @@
     modal:$('modal'), closeModalBtn:$('closeModalBtn'),
     modalSubject:$('modalSubject'), modalMeta:$('modalMeta'), modalBody:$('modalBody'),
     otpBox:$('otpBox'), otpCode:$('otpCode'), copyOtpBtn:$('copyOtpBtn'),
-    links:$('links'), mailViewTitle:$('mailViewTitle'), mailFrameWrap:$('mailFrameWrap'), mailFrame:$('mailFrame'), domainSelect:$('domainSelect'), reloadDomainsBtn:$('reloadDomainsBtn'), domainNote:$('domainNote'), confirmModal:$('confirmModal'), confirmCancelBtn:$('confirmCancelBtn'), confirmOkBtn:$('confirmOkBtn'), confirmTitle:$('confirmTitle'), confirmText:$('confirmText'), toast:$('toast')
+    links:$('links'), mailViewTitle:$('mailViewTitle'), mailFrameWrap:$('mailFrameWrap'), mailFrame:$('mailFrame'), domainSelect:$('domainSelect'), reloadDomainsBtn:$('reloadDomainsBtn'), domainNote:$('domainNote'), confirmModal:$('confirmModal'), confirmCancelBtn:$('confirmCancelBtn'), confirmOkBtn:$('confirmOkBtn'), confirmTitle:$('confirmTitle'), confirmText:$('confirmText'), providerSummary:$('providerSummary'), dropmailToken:$('dropmailToken'), saveDropmailTokenBtn:$('saveDropmailTokenBtn'), toast:$('toast')
   };
 
   function save(){
@@ -498,7 +550,10 @@
       createdAt: source.createdAt || Date.now(),
       password: source.password || '',
       token: source.token || '',
-      accountId: source.accountId || ''
+      accountId: source.accountId || '',
+      sessionId: source.sessionId || '',
+      expiresAt: source.expiresAt || '',
+      dropmailDomainId: source.dropmailDomainId || ''
     };
   }
 
@@ -769,7 +824,10 @@
     el.inboxWrap.hidden = !active;
     if (active){
       el.emailAddress.value = box.address;
-      el.providerBadge.textContent = box.provider === 'mailtm' ? 'Mail.tm' : 'Mail123';
+      el.providerBadge.textContent =
+        box.provider === 'mailtm' ? 'Mail.tm' :
+        box.provider === 'mailgw' ? 'Mail.gw' :
+        box.provider === 'dropmail' ? 'DropMail' : 'Mail123';
     }
     renderHistory();
   }
@@ -812,7 +870,7 @@
     return [...new Set(list.length ? list : MAIL123_FALLBACK_DOMAINS)];
   }
 
-  function normalizeMailTmDomains(data){
+  function normalizeAccountDomains(data){
     const raw = Array.isArray(data) ? data :
       (data?.['hydra:member'] || data?.domains || data?.items || []);
 
@@ -825,12 +883,60 @@
     )];
   }
 
+  function getDropmailToken(){
+    return String(localStorage.getItem(DROPMAIL_TOKEN_KEY) || '').trim();
+  }
+
+  function setDropmailToken(token){
+    const value = String(token || '').trim();
+    if (value) localStorage.setItem(DROPMAIL_TOKEN_KEY, value);
+    else localStorage.removeItem(DROPMAIL_TOKEN_KEY);
+  }
+
+  async function dropMailGraphQL(query){
+    const token = getDropmailToken();
+    if (!token) throw new Error('DropMail requiere un token gratuito af_…');
+
+    const data = await requestJSON(`${DROPMAIL_API}/${encodeURIComponent(token)}`, {
+      method:'POST',
+      body:JSON.stringify({query})
+    });
+
+    if (data?.errors?.length){
+      const first = data.errors[0];
+      throw new Error(first?.message || first?.extensions?.code || 'Error de DropMail');
+    }
+    return data?.data || {};
+  }
+
+  function normalizeDropMailDomains(data){
+    const raw = data?.domains || [];
+    return raw
+      .filter(d => Array.isArray(d?.availableVia) ? d.availableVia.includes('API') : true)
+      .map(d => ({
+        id:String(d?.id || ''),
+        name:String(d?.name || '').trim().replace(/^@/, '').toLowerCase(),
+        expiresAt:d?.expiresAt || null
+      }))
+      .filter(d => d.id && d.name);
+  }
+
   function inferProviderFromAddress(address){
     const domain = normalizeEmail(address).split('@')[1] || '';
+
     if (mailTmDomains.includes(domain)) return 'mailtm';
+    if (mailGwDomains.includes(domain)) return 'mailgw';
+    if (dropMailDomains.some(d => d.name === domain)) return 'dropmail';
     if (mail123Domains.includes(domain) || MAIL123_FALLBACK_DOMAINS.includes(domain)) return 'mail123';
-    // Correos creados en versiones anteriores eran Mail123.
+
+    // Las versiones antiguas usaban Mail123 y ese proveedor permite consultar por dirección.
     return 'mail123';
+  }
+
+  function providerLabel(provider){
+    return provider === 'mailtm' ? 'Mail.tm' :
+      provider === 'mailgw' ? 'Mail.gw' :
+      provider === 'dropmail' ? 'DropMail' : 'Mail123';
   }
 
   function domainOption(value, label){
@@ -849,17 +955,36 @@
     const pool = [
       ...(mail123Domains.length ? mail123Domains : MAIL123_FALLBACK_DOMAINS)
         .map(domain => ({provider:'mail123',domain})),
-      ...mailTmDomains.map(domain => ({provider:'mailtm',domain}))
+      ...mailTmDomains.map(domain => ({provider:'mailtm',domain})),
+      ...mailGwDomains.map(domain => ({provider:'mailgw',domain})),
+      ...dropMailDomains.map(item => ({provider:'dropmail',domain:item.name,domainId:item.id}))
     ];
     return pool.filter(item => domainPassesTld(item.domain));
+  }
+
+  function renderProviderSummary(){
+    const dropToken = !!getDropmailToken();
+    const items = [
+      {label:'Mail123', count:(mail123Domains.length || MAIL123_FALLBACK_DOMAINS.length), ok:true},
+      {label:'Mail.tm', count:mailTmDomains.length, ok:mailTmDomains.length > 0},
+      {label:'Mail.gw', count:mailGwDomains.length, ok:mailGwDomains.length > 0},
+      {label:'DropMail', count:dropMailDomains.length, ok:dropToken && dropMailDomains.length > 0, suffix:dropToken ? '' : ' · token'}
+    ];
+
+    el.providerSummary.innerHTML = '';
+    items.forEach(item => {
+      const chip = document.createElement('span');
+      chip.className = `provider-chip ${item.ok ? 'ok' : 'off'}`;
+      chip.textContent = `${item.label} · ${item.count}${item.suffix || ''}`;
+      el.providerSummary.appendChild(chip);
+    });
   }
 
   function populateDomainSelect(){
     const previous = localStorage.getItem(DOMAIN_PREF_KEY) || el.domainSelect.value || 'mail123:mail123.fr';
     el.domainSelect.innerHTML = '';
 
-    // Favoritos útiles arriba.
-    if (activeTldFilter === 'all' || 'mail123.fr'.endsWith(activeTldFilter)){
+    if (domainPassesTld('mail123.fr')){
       el.domainSelect.appendChild(domainOption('mail123:mail123.fr', '@mail123.fr ⭐ Recomendado'));
     }
     if ((mail123Domains.includes('mail123.site') || MAIL123_FALLBACK_DOMAINS.includes('mail123.site')) &&
@@ -867,26 +992,49 @@
       el.domainSelect.appendChild(domainOption('mail123:mail123.site', '@mail123.site ⭐ .site'));
     }
 
-    el.domainSelect.appendChild(domainOption('auto', `Automático${activeTldFilter === 'all' ? '' : ` · ${activeTldFilter}`}`));
+    el.domainSelect.appendChild(domainOption(
+      'auto',
+      `Automático · ${activeTldFilter === 'all' ? 'todos los gestores' : activeTldFilter}`
+    ));
 
-    const filtered123 = (mail123Domains.length ? mail123Domains : MAIL123_FALLBACK_DOMAINS)
-      .filter(domainPassesTld)
-      .filter(d => d !== 'mail123.fr' && d !== 'mail123.site');
+    const groups = [
+      {
+        provider:'mail123',
+        label:'Mail123',
+        domains:(mail123Domains.length ? mail123Domains : MAIL123_FALLBACK_DOMAINS)
+          .filter(domainPassesTld)
+          .filter(d => d !== 'mail123.fr' && d !== 'mail123.site')
+      },
+      {
+        provider:'mailtm',
+        label:'Mail.tm',
+        domains:mailTmDomains.filter(domainPassesTld)
+      },
+      {
+        provider:'mailgw',
+        label:'Mail.gw · 10 min',
+        domains:mailGwDomains.filter(domainPassesTld)
+      },
+      {
+        provider:'dropmail',
+        label:'DropMail · rotativos',
+        domains:dropMailDomains.filter(d => domainPassesTld(d.name))
+      }
+    ];
 
-    if (filtered123.length){
-      const group123 = document.createElement('optgroup');
-      group123.label = `Mail123 · ${filtered123.length} dominio${filtered123.length === 1 ? '' : 's'}`;
-      filtered123.forEach(d => group123.appendChild(domainOption(`mail123:${d}`, `@${d}`)));
-      el.domainSelect.appendChild(group123);
-    }
+    groups.forEach(group => {
+      if (!group.domains.length) return;
+      const optgroup = document.createElement('optgroup');
+      optgroup.label = `${group.label} · ${group.domains.length}`;
 
-    const filteredTm = mailTmDomains.filter(domainPassesTld);
-    if (filteredTm.length){
-      const groupTm = document.createElement('optgroup');
-      groupTm.label = `Mail.tm · ${filteredTm.length} dominio${filteredTm.length === 1 ? '' : 's'}`;
-      filteredTm.forEach(d => groupTm.appendChild(domainOption(`mailtm:${d}`, `@${d} · Mail.tm`)));
-      el.domainSelect.appendChild(groupTm);
-    }
+      group.domains.forEach(item => {
+        const domain = typeof item === 'string' ? item : item.name;
+        optgroup.appendChild(
+          domainOption(`${group.provider}:${domain}`, `@${domain} · ${group.label}`)
+        );
+      });
+      el.domainSelect.appendChild(optgroup);
+    });
 
     const exists = [...el.domainSelect.options].some(o => o.value === previous);
     const firstNonAuto = [...el.domainSelect.options].find(o => o.value !== 'auto');
@@ -895,12 +1043,17 @@
     localStorage.setItem(DOMAIN_PREF_KEY, el.domainSelect.value);
     updateDomainNote();
     updateTldButtons();
+    renderProviderSummary();
   }
 
   function updateTldButtons(){
-    const allDomains = [
+    const allDomains = availableDomainPool().map(x => x.domain);
+    // availableDomainPool usa el filtro activo; para disponibilidad necesitamos el pool completo.
+    const full = [
       ...(mail123Domains.length ? mail123Domains : MAIL123_FALLBACK_DOMAINS),
-      ...mailTmDomains
+      ...mailTmDomains,
+      ...mailGwDomains,
+      ...dropMailDomains.map(d => d.name)
     ];
 
     document.querySelectorAll('.tld-btn').forEach(btn => {
@@ -912,9 +1065,9 @@
         return;
       }
 
-      btn.disabled = !allDomains.some(d => String(d).toLowerCase().endsWith(tld));
+      btn.disabled = !full.some(d => String(d).toLowerCase().endsWith(tld));
       btn.title = btn.disabled
-        ? `Ningún proveedor conectado ofrece ${tld} ahora`
+        ? `Ningún gestor está ofreciendo ${tld} ahora`
         : `Mostrar dominios ${tld}`;
     });
   }
@@ -924,26 +1077,33 @@
     const pool = availableDomainPool();
 
     if (!pool.length && activeTldFilter !== 'all'){
-      el.domainNote.textContent = `Ahora mismo Mail123/Mail.tm no ofrecen dominios ${activeTldFilter}. No genero dominios falsos: cambia a otra extensión o pulsa Dominios para volver a consultar.`;
+      el.domainNote.textContent =
+        `Ninguno de los gestores conectados ofrece ${activeTldFilter} ahora. Pulsa Dominios para volver a consultar.`;
       return;
     }
 
     if (value === 'auto'){
-      const suffix = activeTldFilter === 'all' ? '' : ` con extensión ${activeTldFilter}`;
-      el.domainNote.textContent = `Automático elegirá entre ${pool.length} dominio${pool.length === 1 ? '' : 's'} disponible${pool.length === 1 ? '' : 's'}${suffix}.`;
+      el.domainNote.textContent =
+        `Automático puede elegir entre ${pool.length} dominios reales de hasta 4 gestores${activeTldFilter === 'all' ? '' : ` con ${activeTldFilter}`}.`;
       return;
     }
 
     const [provider, domain] = value.split(':');
 
-    if (provider === 'mailtm'){
-      el.domainNote.textContent = `Alternativo Mail.tm: @${domain}. La app guarda localmente las credenciales temporales para reabrir la bandeja.`;
+    if (provider === 'mailgw'){
+      el.domainNote.textContent =
+        `Mail.gw: @${domain}. Es útil para verificaciones rápidas, pero sus mensajes duran aproximadamente 10 minutos.`;
+    }else if (provider === 'dropmail'){
+      el.domainNote.textContent =
+        `DropMail: @${domain}. Sus dominios rotativos pueden cambiar con el tiempo; la sesión se mantiene viva mientras se consulte.`;
+    }else if (provider === 'mailtm'){
+      el.domainNote.textContent =
+        `Mail.tm: @${domain}. La app guarda sus credenciales temporales para reabrir esta bandeja en el mismo dispositivo.`;
     }else if (domain === 'mail123.fr'){
-      el.domainNote.textContent = '@mail123.fr queda como favorito porque te ha funcionado bien con Spotify.';
-    }else if (domain === 'mail123.site'){
-      el.domainNote.textContent = '@mail123.site es un dominio .site activo de Mail123.';
+      el.domainNote.textContent =
+        '@mail123.fr queda como favorito porque ya te ha funcionado con Spotify.';
     }else{
-      el.domainNote.textContent = `Mail123: @${domain}. Si una plataforma lo rechaza, prueba @mail123.fr, @mail123.site u otro dominio disponible.`;
+      el.domainNote.textContent = `Mail123: @${domain}.`;
     }
   }
 
@@ -954,19 +1114,35 @@
     }
 
     busy(el.reloadDomainsBtn, true, 'Cargando');
-    el.domainNote.textContent = 'Consultando dominios…';
+    el.domainNote.textContent = 'Consultando dominios de los gestores…';
 
-    const [r123, rtm] = await Promise.allSettled([
+    const dropToken = getDropmailToken();
+
+    const requests = [
       requestJSON(`${MAIL123_API}/domains`),
-      requestJSON(`${MAILTM_API}/domains?page=1`)
-    ]);
+      requestJSON(`${MAILTM_API}/domains?page=1`),
+      requestJSON(`${MAILGW_API}/domains?page=1`),
+      dropToken
+        ? dropMailGraphQL('query { domains { id name availableVia expiresAt } }')
+        : Promise.resolve(null)
+    ];
+
+    const [r123, rtm, rgw, rdrop] = await Promise.allSettled(requests);
 
     mail123Domains = r123.status === 'fulfilled'
       ? normalizeMail123Domains(r123.value)
       : [...MAIL123_FALLBACK_DOMAINS];
 
     mailTmDomains = rtm.status === 'fulfilled'
-      ? normalizeMailTmDomains(rtm.value)
+      ? normalizeAccountDomains(rtm.value)
+      : [];
+
+    mailGwDomains = rgw.status === 'fulfilled'
+      ? normalizeAccountDomains(rgw.value)
+      : [];
+
+    dropMailDomains = (rdrop.status === 'fulfilled' && rdrop.value)
+      ? normalizeDropMailDomains(rdrop.value)
       : [];
 
     domainsLoaded = true;
@@ -974,7 +1150,9 @@
     busy(el.reloadDomainsBtn, false);
 
     if (force){
-      toast(`Dominios: ${mail123Domains.length + mailTmDomains.length}`);
+      const total = (mail123Domains.length || MAIL123_FALLBACK_DOMAINS.length)
+        + mailTmDomains.length + mailGwDomains.length + dropMailDomains.length;
+      toast(`Dominios disponibles: ${total}`);
     }
   }
 
@@ -985,7 +1163,12 @@
     return `T${body}9!`;
   }
 
-  async function createMailTmMailbox(domain){
+  function accountProviderBase(provider){
+    return provider === 'mailgw' ? MAILGW_API : MAILTM_API;
+  }
+
+  async function createAccountMailbox(provider, domain){
+    const base = accountProviderBase(provider);
     let lastError = null;
 
     for (let attempt=0; attempt<6; attempt++){
@@ -993,18 +1176,18 @@
       const password = randomPassword();
 
       try{
-        const account = await requestJSON(`${MAILTM_API}/accounts`, {
+        const account = await requestJSON(`${base}/accounts`, {
           method:'POST',
           body:JSON.stringify({address,password})
         });
 
-        const tokenData = await requestJSON(`${MAILTM_API}/token`, {
+        const tokenData = await requestJSON(`${base}/token`, {
           method:'POST',
           body:JSON.stringify({address,password})
         });
 
         return {
-          provider:'mailtm',
+          provider,
           address,
           domain,
           password,
@@ -1018,8 +1201,38 @@
       }
     }
 
-    const msg = lastError?.message || 'No fue posible crear la cuenta en Mail.tm.';
-    throw new Error(`Mail.tm: ${msg}`);
+    throw new Error(`${providerLabel(provider)}: ${lastError?.message || 'No fue posible crear la cuenta.'}`);
+  }
+
+  async function createDropMailMailbox(domain){
+    const item = dropMailDomains.find(d => d.name === domain);
+    if (!item) throw new Error('El dominio de DropMail ya no está disponible.');
+
+    const query = `mutation {
+      introduceSession(input:{withAddress:true, domainId:${JSON.stringify(item.id)}}) {
+        id
+        expiresAt
+        addresses { address restoreKey }
+      }
+    }`;
+
+    const data = await dropMailGraphQL(query);
+    const session = data?.introduceSession;
+    const address = session?.addresses?.[0]?.address;
+
+    if (!session?.id || !address){
+      throw new Error('DropMail no devolvió una bandeja válida.');
+    }
+
+    return {
+      provider:'dropmail',
+      address:normalizeEmail(address),
+      domain,
+      sessionId:session.id,
+      expiresAt:session.expiresAt || '',
+      dropmailDomainId:item.id,
+      createdAt:Date.now()
+    };
   }
 
   async function buildShortMailbox(){
@@ -1029,14 +1242,18 @@
 
     if (selection === 'auto'){
       const pool = availableDomainPool();
-      const pick = pool[Math.floor(Math.random() * pool.length)] || {provider:'mail123',domain:'mail123.fr'};
+      if (!pool.length) throw new Error('No hay dominios disponibles con este filtro.');
+      const pick = pool[Math.floor(Math.random() * pool.length)];
       selection = `${pick.provider}:${pick.domain}`;
     }
 
     const [provider, domain] = selection.split(':');
 
-    if (provider === 'mailtm'){
-      return createMailTmMailbox(domain);
+    if (provider === 'mailtm' || provider === 'mailgw'){
+      return createAccountMailbox(provider, domain);
+    }
+    if (provider === 'dropmail'){
+      return createDropMailMailbox(domain);
     }
 
     return {
@@ -1047,29 +1264,32 @@
     };
   }
 
-  async function ensureMailTmToken(){
-    if (box?.provider !== 'mailtm') return '';
+  async function ensureAccountToken(provider){
+    if (box?.provider !== provider) return '';
     if (box.token) return box.token;
 
     if (!box.password){
-      throw new Error('Esta bandeja de Mail.tm no tiene sus credenciales guardadas en este dispositivo.');
+      throw new Error(`Esta bandeja de ${providerLabel(provider)} no tiene sus credenciales guardadas en este dispositivo.`);
     }
 
-    const data = await requestJSON(`${MAILTM_API}/token`, {
+    const base = accountProviderBase(provider);
+    const data = await requestJSON(`${base}/token`, {
       method:'POST',
       body:JSON.stringify({address:box.address,password:box.password})
     });
+
     box.token = data?.token || '';
     save();
     rememberAddress(box.address);
     return box.token;
   }
 
-  async function mailTmAuthorized(path, options={}){
-    let token = await ensureMailTmToken();
+  async function accountAuthorized(provider, path, options={}){
+    const base = accountProviderBase(provider);
+    let token = await ensureAccountToken(provider);
 
     try{
-      return await requestJSON(`${MAILTM_API}${path}`, {
+      return await requestJSON(`${base}${path}`, {
         ...options,
         headers:{
           ...(options.headers || {}),
@@ -1080,8 +1300,9 @@
       if (err?.status !== 401 || !box?.password) throw err;
 
       box.token = '';
-      token = await ensureMailTmToken();
-      return requestJSON(`${MAILTM_API}${path}`, {
+      token = await ensureAccountToken(provider);
+
+      return requestJSON(`${base}${path}`, {
         ...options,
         headers:{
           ...(options.headers || {}),
@@ -1091,10 +1312,66 @@
     }
   }
 
+  function mapDropMailMessage(m){
+    const readable = String(m?.text || '').trim();
+    return {
+      id:m?.id || '',
+      from:m?.fromAddr || 'Remitente desconocido',
+      sender:m?.fromAddr || '',
+      subject:m?.headerSubject || '(Sin asunto)',
+      intro:readable.slice(0,180),
+      createdAt:m?.receivedAt || '',
+      text:m?.text || '',
+      html:m?.html || '',
+      downloadUrl:m?.downloadUrl || ''
+    };
+  }
+
+  async function fetchDropMailMessages(){
+    if (!box?.sessionId){
+      throw new Error('No tengo el identificador de esta sesión de DropMail en este dispositivo.');
+    }
+
+    const query = `query {
+      session(id:${JSON.stringify(box.sessionId)}) {
+        id
+        expiresAt
+        mails {
+          id
+          fromAddr
+          toAddr
+          receivedAt
+          text
+          headerSubject
+          html
+          downloadUrl
+        }
+      }
+    }`;
+
+    const data = await dropMailGraphQL(query);
+    const session = data?.session;
+
+    if (!session){
+      throw new Error('La sesión de DropMail venció.');
+    }
+
+    box.expiresAt = session.expiresAt || box.expiresAt || '';
+    save();
+
+    const mapped = (session.mails || []).map(mapDropMailMessage);
+    dropMailMessageCache = new Map(mapped.map(m => [String(m.id), m]));
+    return mapped;
+  }
+
   async function fetchProviderMessages(){
-    if (box?.provider === 'mailtm'){
-      const data = await mailTmAuthorized('/messages?page=1');
+    if (box?.provider === 'mailtm' || box?.provider === 'mailgw'){
+      const data = await accountAuthorized(box.provider, '/messages?page=1');
       return data?.['hydra:member'] || data?.messages || [];
+    }
+
+    if (box?.provider === 'dropmail'){
+      return fetchDropMailMessages();
     }
 
     const address = encodeURIComponent(box.address);
@@ -1103,14 +1380,21 @@
   }
 
   async function fetchProviderMessageDetail(id){
-    if (box?.provider === 'mailtm'){
-      return mailTmAuthorized(`/messages/${encodeURIComponent(id)}`);
+    if (box?.provider === 'mailtm' || box?.provider === 'mailgw'){
+      return accountAuthorized(box.provider, `/messages/${encodeURIComponent(id)}`);
+    }
+
+    if (box?.provider === 'dropmail'){
+      if (dropMailMessageCache.has(String(id))){
+        return dropMailMessageCache.get(String(id));
+      }
+      const messages = await fetchDropMailMessages();
+      return messages.find(m => String(m.id) === String(id)) || {};
     }
 
     const address = encodeURIComponent(box.address);
     return requestJSON(`${MAIL123_API}/mailbox/${address}/messages/${encodeURIComponent(id)}`);
   }
-
 
   function isStandalone(){
     return window.matchMedia('(display-mode: standalone)').matches ||
@@ -1233,8 +1517,8 @@
         box = {...saved, address:typed};
       }else{
         const provider = inferProviderFromAddress(typed);
-        if (provider === 'mailtm'){
-          throw new Error('Para volver a abrir un correo de Mail.tm debes haberlo generado antes en este mismo dispositivo.');
+        if (provider === 'mailtm' || provider === 'mailgw' || provider === 'dropmail'){
+          throw new Error(`Para volver a abrir un correo de ${providerLabel(provider)} debes haberlo generado antes en este mismo dispositivo.`);
         }
         box = {
           address:typed,
@@ -2145,6 +2429,28 @@
   window.addEventListener('offline', updateOnlineState);
   el.installBtn.addEventListener('click', installApp);
 
+
+  el.dropmailToken.value = getDropmailToken();
+
+  el.saveDropmailTokenBtn.addEventListener('click', async () => {
+    const token = String(el.dropmailToken.value || '').trim();
+
+    if (token && !token.startsWith('af_')){
+      toast('El token de DropMail debe comenzar por af_');
+      return;
+    }
+
+    setDropmailToken(token);
+    domainsLoaded = false;
+    dropMailDomains = [];
+
+    try{
+      await loadDomains(true);
+      toast(token ? 'DropMail activado' : 'Token de DropMail eliminado');
+    }catch(err){
+      toast(err?.message || 'No pude activar DropMail');
+    }
+  });
 
   el.recentSearch.addEventListener('input', () => {
     el.recentList.scrollLeft = 0;

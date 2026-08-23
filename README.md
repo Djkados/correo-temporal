@@ -1,4 +1,4 @@
-# Correo Temporal Mini v14 — PWA
+# Correo Temporal Mini v15 — PWA
 
 Esta versión está preparada para usarse e instalarse tanto en PC como en celular.
 
@@ -77,3 +77,27 @@ Mail.tm exige atribución visible; la app mantiene el enlace a Mail.tm en el pie
 - Los filtros muestran únicamente dominios realmente ofrecidos por Mail123 o Mail.tm.
 - Si `.shop` o `.us` no están disponibles en los proveedores conectados, el botón queda deshabilitado en lugar de generar una dirección inválida.
 - El botón “Dominios” vuelve a consultar la lista en vivo.
+
+
+## Cambio v15 — 4 gestores
+La app puede trabajar con:
+1. **Mail123** — base principal, permite consultar buzones por dirección.
+2. **Mail.tm** — cuentas temporales con token local.
+3. **Mail.gw** — API compatible con Mail.tm; útil para verificaciones rápidas, con retención aproximada de 10 minutos.
+4. **DropMail** — opcional mediante token gratuito `af_...`; aporta dominios públicos/rotativos y sesiones que se extienden al consultarlas.
+
+### Extensiones
+Filtros dinámicos:
+- `.net`
+- `.us`
+- `.cloud`
+- `.shop`
+- `.site`
+
+Los filtros solo se habilitan si algún gestor realmente ofrece un dominio con esa extensión en ese momento. La app no inventa dominios.
+
+### DropMail
+DropMail requiere desde 2026 un token gratuito generado en:
+https://dropmail.me/api/
+
+El token se guarda únicamente en `localStorage` del dispositivo y no forma parte del repositorio de GitHub.
