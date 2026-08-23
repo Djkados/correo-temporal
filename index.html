@@ -1,0 +1,1557 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+  <meta name="theme-color" content="#070b14" />
+  <meta name="color-scheme" content="dark" />
+  <title>Correo Temporal</title>
+  <link rel="manifest" href="./manifest.webmanifest" />
+  <link rel="icon" type="image/png" sizes="192x192" href="./icons/icon-192.png" />
+  <link rel="apple-touch-icon" href="./icons/icon-192.png" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="Correo Temporal" />
+
+  <style>
+    :root{
+      --bg:#070b14;--card:#0f1629;--card2:#121c33;--text:#f4f7ff;
+      --muted:#98a6bd;--line:#26324a;--accent:#5da9ff;--accent2:#7b68ee;
+      --ok:#46d889;--danger:#ff6b78;
+      font-family:Inter,ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
+    }
+    *{box-sizing:border-box}
+    body{
+      margin:0;min-height:100vh;color:var(--text);
+      background:
+        radial-gradient(circle at 10% 0%,rgba(93,169,255,.18),transparent 34rem),
+        radial-gradient(circle at 100% 20%,rgba(123,104,238,.12),transparent 28rem),
+        var(--bg);
+    }
+    button{font:inherit}
+    .app{width:min(920px,100%);margin:auto;padding:22px 14px 40px}
+    .top{display:flex;align-items:center;gap:12px;margin:4px 4px 20px}
+    .logo{
+      width:50px;height:50px;border-radius:17px;display:grid;place-items:center;
+      background:linear-gradient(135deg,var(--accent),var(--accent2));font-size:25px;
+      box-shadow:0 10px 30px rgba(93,169,255,.2)
+    }
+    h1{font-size:23px;margin:0;font-weight:850;letter-spacing:-.4px}
+    .subtitle{margin:4px 0 0;color:var(--muted);font-size:13px}
+    .card{
+      background:linear-gradient(180deg,rgba(18,28,51,.96),rgba(13,20,37,.96));
+      border:1px solid var(--line);border-radius:24px;padding:18px;
+      box-shadow:0 20px 55px rgba(0,0,0,.25)
+    }
+    .generate{text-align:center;padding:38px 18px}
+    .hero{font-size:50px;margin-bottom:10px}
+    .generate h2{font-size:21px;margin:0}
+    .generate p{color:var(--muted);font-size:13px;line-height:1.55;max-width:430px;margin:10px auto 18px}
+    .eyebrow{font-size:12px;text-transform:uppercase;letter-spacing:.12em;color:var(--muted);font-weight:800}
+    .email-row{display:flex;align-items:center;gap:10px;margin-top:10px}
+    .email{
+      flex:1;min-width:0;font-size:clamp(18px,5vw,27px);font-weight:900;letter-spacing:-.5px;
+      overflow-wrap:anywhere
+    }
+    .email-input{
+      width:100%;border:1px solid transparent;outline:none;color:var(--text);background:transparent;
+      padding:9px 10px;margin-left:-10px;border-radius:13px
+    }
+    .email-input:focus{
+      border-color:#3d5f91;background:rgba(93,169,255,.06)
+    }
+    .email-help{
+      margin-top:9px;color:var(--muted);font-size:11px;line-height:1.45
+    }
+    .btn,.icon-btn{
+      border:0;cursor:pointer;border-radius:15px;min-height:48px;color:var(--text);
+      background:#1b2742;font-weight:780
+    }
+    .btn{padding:0 16px}
+    .btn.primary{background:linear-gradient(135deg,var(--accent),var(--accent2));color:white}
+    .btn.ghost{border:1px solid var(--line);background:rgba(255,255,255,.025)}
+    .btn.small{min-height:38px;border-radius:12px;padding:0 12px;font-size:13px}
+    .icon-btn{width:52px;font-size:18px;flex:none}
+    .generate .btn{width:min(330px,100%);height:52px}
+    .btn:disabled,.icon-btn:disabled{opacity:.6;cursor:default}
+    .statusline{display:flex;flex-wrap:wrap;gap:8px;margin-top:15px}
+    .pill{border:1px solid var(--line);background:#101a30;border-radius:999px;padding:7px 10px;font-size:12px;color:var(--muted)}
+    .pill b{color:var(--text)}
+    .pill.ok::before{content:"";width:7px;height:7px;border-radius:50%;background:var(--ok);display:inline-block;margin-right:7px}
+    .actions{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:15px}
+    .wait-btn{grid-column:1/-1}
+    .wait-btn.active{background:linear-gradient(135deg,#245d4a,#2a8f69);border-color:#3ccf92}
+    .recent-wrap{margin-top:14px}
+    .recent-head{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:8px}
+    .recent-title{font-size:12px;text-transform:uppercase;letter-spacing:.1em;color:var(--muted);font-weight:800}
+    .recent-list{display:flex;gap:8px;overflow-x:auto;padding:2px 1px 5px;scrollbar-width:none}
+    .recent-list::-webkit-scrollbar{display:none}
+    .recent-chip{
+      flex:0 0 auto;max-width:240px;border:1px solid var(--line);background:#101a30;color:#cfd8e7;
+      border-radius:13px;padding:9px 11px;font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+      cursor:pointer
+    }
+    .recent-chip.current{border-color:#4b79b9;background:rgba(93,169,255,.10);color:#fff}
+    .otp-preview{
+      display:flex!important;align-items:center;justify-content:space-between;gap:8px;
+      margin-top:10px;border-radius:12px;padding:8px 9px;background:rgba(70,216,137,.10);
+      border:1px solid rgba(70,216,137,.22);font-size:12px;color:#bff2d3
+    }
+    .otp-inline{font-size:16px;font-weight:900;letter-spacing:.08em;color:#eafff2}
+    .copy-inline{
+      border:0;border-radius:10px;background:#233a31;color:#dff9ea;font-size:11px;font-weight:800;
+      padding:7px 9px;cursor:pointer
+    }
+    .new-badge{
+      display:inline-flex;align-items:center;gap:5px;margin-top:8px;padding:5px 8px;border-radius:999px;
+      background:rgba(93,169,255,.12);color:#bcd8ff;font-size:11px;font-weight:800
+    }
+    .flash-new{animation:flashnew 1.1s ease 2}
+    @keyframes flashnew{0%,100%{box-shadow:none}50%{box-shadow:0 0 0 3px rgba(93,169,255,.35)}}
+    .section-head{display:flex;align-items:center;justify-content:space-between;gap:10px;margin:22px 4px 10px}
+    h2{font-size:16px;margin:0}
+    .count{font-size:12px;color:var(--muted)}
+    .empty{text-align:center;padding:42px 18px}
+    .empty .big{font-size:35px;margin-bottom:10px}
+    .empty h3{margin:0 0 6px;font-size:16px}
+    .empty p{margin:0;color:var(--muted);font-size:13px;line-height:1.5}
+    .list{display:grid;gap:10px}
+    .message{
+      padding:15px;border:1px solid var(--line);border-radius:18px;background:rgba(18,28,51,.78);
+      cursor:pointer
+    }
+    .message-top{display:flex;justify-content:space-between;gap:12px;align-items:start}
+    .sender{font-weight:800;font-size:14px;overflow-wrap:anywhere}.sender-email{display:block;margin-top:3px;color:var(--muted);font-size:11px;font-weight:550;line-height:1.35}
+    .time{font-size:11px;color:var(--muted);white-space:nowrap}
+    .subject{margin-top:6px;font-size:14px;font-weight:680}
+    .intro{margin-top:6px;color:var(--muted);font-size:12px;line-height:1.45;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+    .otp-preview{display:inline-flex;align-items:center;gap:6px;margin-top:9px;border-radius:10px;padding:5px 8px;background:rgba(93,169,255,.1);font-size:12px;color:#bcd8ff}
+    .footer{text-align:center;color:#73819a;font-size:11px;margin:18px 10px;line-height:1.5}
+    .footer a{color:#9ebeea}
+    .toast{
+      position:fixed;left:50%;bottom:24px;transform:translate(-50%,20px);
+      background:#eef4ff;color:#11182a;padding:11px 15px;border-radius:14px;font-size:13px;font-weight:800;
+      opacity:0;pointer-events:none;transition:.2s;z-index:60;box-shadow:0 12px 40px rgba(0,0,0,.35)
+    }
+    .toast.show{opacity:1;transform:translate(-50%,0)}
+    .modal{
+      position:fixed;inset:0;background:rgba(0,0,0,.68);display:none;align-items:flex-end;justify-content:center;
+      z-index:50;padding:10px
+    }
+    .modal.show{display:flex}
+    .sheet{
+      width:min(720px,100%);max-height:88vh;overflow:auto;background:#0d1527;border:1px solid var(--line);
+      border-radius:26px 26px 18px 18px;padding:18px;box-shadow:0 -20px 80px rgba(0,0,0,.4)
+    }
+    .sheet-head{display:flex;justify-content:space-between;gap:12px;align-items:start}
+    .sheet h3{margin:4px 0 0;font-size:18px;overflow-wrap:anywhere}
+    .meta{margin-top:8px;color:var(--muted);font-size:12px;line-height:1.5;white-space:pre-wrap;overflow-wrap:anywhere}
+    .otp-box{margin-top:16px;padding:14px;border:1px solid rgba(93,169,255,.3);background:rgba(93,169,255,.08);border-radius:17px}
+    .otp-row{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-top:8px}
+    .otp{font-size:24px;letter-spacing:.08em;font-weight:900}.otp-note{margin-top:9px;color:var(--muted);font-size:12px;line-height:1.4}
+    .links{display:grid;gap:8px;margin-top:15px}
+    .link-btn{
+      display:block;text-decoration:none;color:#dceaff;background:#14223d;border:1px solid #293a5b;
+      border-radius:14px;padding:12px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:12px
+    }
+    .body{margin-top:15px;border-top:1px solid var(--line);padding-top:15px;color:#d8deeb;font-size:13px;line-height:1.55;white-space:pre-wrap;overflow-wrap:anywhere}
+    .mail-view-title{margin-top:16px;font-size:12px;text-transform:uppercase;letter-spacing:.12em;color:var(--muted);font-weight:800}
+    .mail-frame-wrap{margin-top:9px;border:1px solid var(--line);border-radius:16px;overflow:hidden;background:#fff}
+    .mail-frame{display:block;width:100%;height:500px;border:0;background:#fff}
+    .mail-fallback{padding:16px;background:#fff;color:#111;font-size:14px;line-height:1.55;white-space:pre-wrap;overflow-wrap:anywhere}
+    .otp-box.good{border-color:rgba(70,216,137,.45);background:rgba(70,216,137,.08)}
+    .otp{word-break:break-word}
+    .spinner{width:18px;height:18px;border:2px solid rgba(255,255,255,.25);border-top-color:white;border-radius:50%;display:inline-block;animation:spin .7s linear infinite;vertical-align:-4px;margin-right:7px}
+    @keyframes spin{to{transform:rotate(360deg)}}
+    @media(min-width:640px){
+      .app{padding-top:34px}
+      .modal{align-items:center}
+      .sheet{border-radius:26px}
+      .mailbox-grid{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:16px;align-items:start}
+      .actions{grid-template-columns:repeat(3,1fr)}
+      .wait-btn{grid-column:auto}
+      .recent-list{padding-bottom:8px}
+    }
+    @media(min-width:900px){
+      .message{padding:17px 18px}
+      .mail-frame{height:620px}
+    }
+    .install-row{display:flex;gap:10px;align-items:center;margin-left:auto}
+    .install-btn{
+      border:1px solid #34517c;background:rgba(93,169,255,.09);color:#dcecff;
+      border-radius:13px;min-height:42px;padding:0 13px;font-weight:800;cursor:pointer
+    }
+    .install-btn[hidden]{display:none!important}
+    .install-hint{
+      display:none;margin:12px 4px 0;padding:11px 12px;border:1px solid var(--line);
+      border-radius:14px;background:#0d1628;color:var(--muted);font-size:12px;line-height:1.5
+    }
+    .install-hint.show{display:block}
+    .offline-banner{
+      position:sticky;top:8px;z-index:20;margin-bottom:10px;padding:9px 12px;border-radius:13px;
+      background:#3b2d16;border:1px solid #6e5227;color:#ffdca0;font-size:12px;font-weight:750;
+      display:none
+    }
+    .offline-banner.show{display:block}
+    .standalone-note{font-size:11px;color:var(--muted);margin-top:6px}
+  </style>
+</head>
+<body>
+<main class="app">
+  <div id="offlineBanner" class="offline-banner">Sin conexión. La app abre, pero la bandeja necesita internet para recibir correos.</div>
+
+  <header class="top">
+    <div class="logo">✉️</div>
+    <div>
+      <h1>Correo Temporal</h1>
+      <p class="subtitle">Genera, recupera y recibe códigos casi al instante.</p>
+    </div>
+    <div class="install-row">
+      <button id="installBtn" class="install-btn" hidden>⬇ Instalar</button>
+    </div>
+  </header>
+  <div id="installHint" class="install-hint"></div>
+
+  <section id="noMailbox" class="card generate">
+    <div class="hero">📨</div>
+    <h2>Genera tu correo</h2>
+    <p>Genera una dirección corta como templo15 o lucrecia29, con un dominio disponible al azar.</p>
+    <button id="generateBtn" class="btn primary">Generar correo temporal</button>
+  </section>
+
+  <section id="mailbox" class="card" hidden>
+    <div class="eyebrow">Tu correo temporal</div>
+    <div class="email-row">
+      <input id="emailAddress" class="email email-input" type="email" inputmode="email" autocomplete="off" spellcheck="false" value="" aria-label="Correo temporal" />
+      <button id="copyEmailBtn" class="icon-btn" title="Copiar correo">📋</button>
+    </div>
+    <div class="email-help">Puedes editar esta dirección y tocar <b>Actualizar</b> para abrir otra bandeja temporal.</div>
+
+    <div class="statusline">
+      <div class="pill ok"><b>Activo</b></div>
+      <div class="pill">⏳ <b>Hasta 7 días</b></div>
+      <div class="pill">📥 <b id="mailCount">0 correos</b></div>
+      <div id="livePill" class="pill ok"><b>En vivo · 7 s</b></div>
+    </div>
+
+    <div class="actions">
+      <button id="refreshBtn" class="btn primary">↻ Actualizar</button>
+      <button id="newBtn" class="btn ghost">＋ Nuevo correo</button>
+      <button id="waitBtn" class="btn ghost wait-btn">⚡ Esperar código</button>
+    </div>
+
+    <div id="recentWrap" class="recent-wrap" hidden>
+      <div class="recent-head">
+        <div class="recent-title">Correos recientes</div>
+        <div id="recentCount" class="count"></div>
+      </div>
+      <div id="recentList" class="recent-list"></div>
+    </div>
+  </section>
+
+  <div id="inboxWrap" hidden>
+    <div class="section-head">
+      <h2>Bandeja de entrada</h2>
+      <span id="lastUpdate" class="count">Sin actualizar</span>
+    </div>
+
+    <section id="emptyInbox" class="card empty">
+      <div class="big">📭</div>
+      <h3>No ha llegado ningún correo</h3>
+      <p>Mientras esta página esté abierta, la bandeja se revisa automáticamente <b>cada 7 segundos</b>. También puedes tocar <b>Actualizar</b>.</p>
+    </section>
+
+    <div id="messageList" class="list"></div>
+  </div>
+
+  <p class="footer">
+    Servicio de correo temporal mediante
+    <a href="https://mail123.click" target="_blank" rel="noopener noreferrer">Mail123</a>.
+    El buzón actual queda guardado en este dispositivo.
+  </p>
+</main>
+
+<div id="modal" class="modal">
+  <div class="sheet">
+    <div class="sheet-head">
+      <div>
+        <div class="eyebrow">Correo recibido</div>
+        <h3 id="modalSubject">—</h3>
+      </div>
+      <button id="closeModalBtn" class="icon-btn">✕</button>
+    </div>
+    <div id="modalMeta" class="meta"></div>
+
+    <div id="otpBox" class="otp-box" hidden>
+      <div class="eyebrow">Código detectado</div>
+      <div class="otp-row">
+        <div id="otpCode" class="otp"></div>
+        <button id="copyOtpBtn" class="btn small primary">Copiar código</button>
+      </div>
+    </div>
+
+    <div id="links" class="links"></div>
+    <div id="modalBody" class="body"></div>
+    <div id="mailViewTitle" class="mail-view-title" hidden>Vista del mensaje</div>
+    <div id="mailFrameWrap" class="mail-frame-wrap" hidden>
+      <iframe id="mailFrame" class="mail-frame" sandbox="" referrerpolicy="no-referrer" title="Contenido del correo"></iframe>
+    </div>
+  </div>
+</div>
+
+<div id="toast" class="toast">Copiado</div>
+
+<script>
+(() => {
+  const API = 'https://mail123.fr/api/v1';
+  const STORAGE_KEY = 'correo_temporal_mail123_v2';
+  const HISTORY_KEY = 'correo_temporal_history_v1';
+  const OTP_CACHE_KEY = 'correo_temporal_otp_cache_v1';
+  const ACTIVE_POLL_MS = 7 * 1000;    // ~8.6 consultas/min, por debajo del límite gratuito de 10/min
+  const HIDDEN_POLL_MS = 90 * 1000;
+  const WAIT_POLL_MS = 7 * 1000;
+  const WAIT_DURATION_MS = 5 * 60 * 1000; // conservador para el plan gratuito
+
+  let box = null;
+  let pollTimer = null;
+  let waitTimer = null;
+  let waitCountdownTimer = null;
+  let waitUntil = 0;
+  let currentOtp = '';
+  let history = [];
+  let otpCache = {};
+  let lastMessageIds = new Set();
+  let refreshInFlight = false;
+  let deferredInstallPrompt = null;
+
+  const $ = id => document.getElementById(id);
+  const el = {
+    noMailbox:$('noMailbox'), mailbox:$('mailbox'), inboxWrap:$('inboxWrap'), offlineBanner:$('offlineBanner'), installBtn:$('installBtn'), installHint:$('installHint'),
+    generateBtn:$('generateBtn'), emailAddress:$('emailAddress'),
+    copyEmailBtn:$('copyEmailBtn'), mailCount:$('mailCount'), livePill:$('livePill'),
+    refreshBtn:$('refreshBtn'), newBtn:$('newBtn'), waitBtn:$('waitBtn'), recentWrap:$('recentWrap'), recentList:$('recentList'), recentCount:$('recentCount'),
+    emptyInbox:$('emptyInbox'), messageList:$('messageList'), lastUpdate:$('lastUpdate'),
+    modal:$('modal'), closeModalBtn:$('closeModalBtn'),
+    modalSubject:$('modalSubject'), modalMeta:$('modalMeta'), modalBody:$('modalBody'),
+    otpBox:$('otpBox'), otpCode:$('otpCode'), copyOtpBtn:$('copyOtpBtn'),
+    links:$('links'), mailViewTitle:$('mailViewTitle'), mailFrameWrap:$('mailFrameWrap'), mailFrame:$('mailFrame'), toast:$('toast')
+  };
+
+  function save(){
+    if (box) localStorage.setItem(STORAGE_KEY, JSON.stringify(box));
+    else localStorage.removeItem(STORAGE_KEY);
+  }
+
+  function load(){
+    try{
+      box = JSON.parse(localStorage.getItem(STORAGE_KEY) || 'null');
+    }catch{ box = null; }
+  }
+
+
+  function loadHistory(){
+    try{
+      history = JSON.parse(localStorage.getItem(HISTORY_KEY) || '[]');
+      if (!Array.isArray(history)) history = [];
+    }catch{ history = []; }
+  }
+
+  function saveHistory(){
+    localStorage.setItem(HISTORY_KEY, JSON.stringify(history.slice(0,10)));
+  }
+
+  function rememberAddress(address){
+    const a = normalizeEmail(address);
+    if (!isValidEmail(a)) return;
+    history = history.filter(item => item.address !== a);
+    history.unshift({address:a, lastUsed:Date.now()});
+    history = history.slice(0,10);
+    saveHistory();
+    renderHistory();
+  }
+
+  function loadOtpCache(){
+    try{
+      otpCache = JSON.parse(localStorage.getItem(OTP_CACHE_KEY) || '{}') || {};
+    }catch{ otpCache = {}; }
+  }
+
+  function saveOtpCache(){
+    // Limita el cache para evitar crecimiento indefinido.
+    const entries = Object.entries(otpCache)
+      .sort((a,b) => (b[1]?.ts || 0) - (a[1]?.ts || 0))
+      .slice(0,80);
+    otpCache = Object.fromEntries(entries);
+    localStorage.setItem(OTP_CACHE_KEY, JSON.stringify(otpCache));
+  }
+
+  function otpCacheKey(address, messageId){
+    return `${normalizeEmail(address)}::${String(messageId)}`;
+  }
+
+  function renderHistory(){
+    el.recentList.innerHTML = '';
+    const valid = history.filter(item => isValidEmail(item.address)).slice(0,10);
+    el.recentWrap.hidden = valid.length === 0;
+    el.recentCount.textContent = valid.length ? `${valid.length}/10` : '';
+
+    valid.forEach(item => {
+      const btn = document.createElement('button');
+      btn.className = 'recent-chip' + (box?.address === item.address ? ' current' : '');
+      btn.textContent = item.address;
+      btn.title = `Abrir ${item.address}`;
+      btn.addEventListener('click', async () => {
+        if (box?.address === item.address){
+          await refresh(true);
+          return;
+        }
+        stopWaitMode();
+        box = {...(box || {}), address:item.address, createdAt:box?.createdAt || Date.now()};
+        save();
+        el.emailAddress.value = item.address;
+        render();
+        renderMessages([]);
+        rememberAddress(item.address);
+        await refresh(true);
+      });
+      el.recentList.appendChild(btn);
+    });
+  }
+
+  function toast(text){
+    el.toast.textContent = text;
+    el.toast.classList.add('show');
+    clearTimeout(toast.t);
+    toast.t = setTimeout(() => el.toast.classList.remove('show'), 1600);
+  }
+
+  async function copyText(text){
+    try{
+      await navigator.clipboard.writeText(text);
+    }catch{
+      const ta = document.createElement('textarea');
+      ta.value = text; ta.style.position='fixed'; ta.style.opacity='0';
+      document.body.appendChild(ta); ta.select(); document.execCommand('copy'); ta.remove();
+    }
+    toast('Copiado');
+  }
+
+  function busy(button, on, label='Cargando'){
+    if (on){
+      button.dataset.old = button.innerHTML;
+      button.disabled = true;
+      button.innerHTML = `<span class="spinner"></span>${label}`;
+    }else{
+      button.disabled = false;
+      if (button.dataset.old) button.innerHTML = button.dataset.old;
+    }
+  }
+
+  async function getJSON(url){
+    const res = await fetch(url, {cache:'no-store'});
+    let data = null;
+    try{ data = await res.json(); }catch{}
+    if (!res.ok) throw new Error((data && (data.error || data.message)) || `HTTP ${res.status}`);
+    if (data && data.success === false) throw new Error(data.error || 'La API devolvió un error');
+    return data;
+  }
+
+  function render(){
+    const active = !!box?.address;
+    el.noMailbox.hidden = active;
+    el.mailbox.hidden = !active;
+    el.inboxWrap.hidden = !active;
+    if (active) el.emailAddress.value = box.address;
+    renderHistory();
+  }
+
+
+  const SHORT_NAMES = [
+    'templo','lucrecia','brisa','olivo','luna','nube','cielo','roble','lirio','nardo',
+    'lince','rio','sol','marea','coral','senda','campo','flora','dalia','abril',
+    'lucia','mario','elena','nora','sara','alma','ines','diana','leo','ivan',
+    'mateo','simon','tomas','clara','laura','paula','sofia','valen','mila','emma',
+    'cobre','cedro','pino','trigo','arena','piedra','monte','valle','isla','lago',
+    'viento','norte','sur','verde','azul','ambar','perla','jade','iris','aura',
+    'faro','ruta','plaza','puerto','villa','jardin','bosque','costa','playa','rayo',
+    'eco','onda','punto','nexo','pixel','dato','clave','nivel','modo','zona'
+  ];
+
+  function shortAlias(){
+    const word = SHORT_NAMES[Math.floor(Math.random() * SHORT_NAMES.length)];
+    const number = Math.floor(10 + Math.random() * 90);
+    return `${word}${number}`;
+  }
+
+  function normalizeDomains(data){
+    const raw = Array.isArray(data) ? data :
+      (data?.domains || data?.items || data?.data || data?.['hydra:member'] || []);
+
+    const list = raw.map(item => {
+      if (typeof item === 'string') return item;
+      return item?.domain || item?.name || item?.value || '';
+    })
+    .map(d => String(d).trim().replace(/^@/, ''))
+    .filter(Boolean);
+
+    // Fallback oficial conocido, por si el endpoint cambia de formato temporalmente.
+    return list.length ? list : [
+      'mail123.fr','mail456.fr','mail789.fr','mail123.cloud','mail1mail.com',
+      'mail123.click','maildaft.com','mail123.com.br','daftmail.cloud',
+      'mailtemp.fr','mail123.beer','mail123box.tech'
+    ];
+  }
+
+  async function buildShortMailbox(){
+    let domains = [];
+    try{
+      const domainData = await getJSON(`${API}/domains`);
+      domains = normalizeDomains(domainData);
+    }catch(err){
+      console.warn('No pude consultar dominios; uso fallback.', err);
+      domains = normalizeDomains(null);
+    }
+
+    const domain = domains[Math.floor(Math.random() * domains.length)];
+    return {
+      address: `${shortAlias()}@${domain}`,
+      domain,
+      createdAt: Date.now()
+    };
+  }
+
+
+  function isStandalone(){
+    return window.matchMedia('(display-mode: standalone)').matches ||
+      window.navigator.standalone === true;
+  }
+
+  function updateOnlineState(){
+    const online = navigator.onLine !== false;
+    el.offlineBanner?.classList.toggle('show', !online);
+  }
+
+  function deviceInstallHint(){
+    const ua = navigator.userAgent || '';
+    const isIOS = /iPhone|iPad|iPod/i.test(ua);
+    const isAndroid = /Android/i.test(ua);
+    const isDesktop = !isIOS && !isAndroid;
+
+    if (isStandalone()) return '';
+
+    if (isIOS){
+      return 'En iPhone/iPad: abre esta página en Safari → botón Compartir → “Agregar a pantalla de inicio”.';
+    }
+    if (isDesktop){
+      return 'En PC: usa Chrome o Edge. Cuando esté publicada por HTTPS aparecerá el botón Instalar o el icono de instalación en la barra de direcciones.';
+    }
+    return 'En Android: usa Chrome o Edge. Cuando esté publicada por HTTPS aparecerá el botón Instalar.';
+  }
+
+  function renderInstallState(){
+    if (isStandalone()){
+      el.installBtn.hidden = true;
+      el.installHint.classList.remove('show');
+      return;
+    }
+
+    if (deferredInstallPrompt){
+      el.installBtn.hidden = false;
+      el.installHint.classList.remove('show');
+      return;
+    }
+
+    el.installBtn.hidden = false;
+    el.installBtn.textContent = '⬇ Instalar';
+  }
+
+  async function installApp(){
+    if (isStandalone()){
+      toast('La app ya está instalada');
+      return;
+    }
+
+    if (deferredInstallPrompt){
+      deferredInstallPrompt.prompt();
+      const choice = await deferredInstallPrompt.userChoice;
+      deferredInstallPrompt = null;
+      renderInstallState();
+      if (choice?.outcome === 'accepted') toast('Instalación iniciada');
+      return;
+    }
+
+    const hint = deviceInstallHint();
+    if (hint){
+      el.installHint.textContent = hint;
+      el.installHint.classList.add('show');
+      el.installHint.scrollIntoView({behavior:'smooth', block:'nearest'});
+    }
+  }
+
+  async function registerServiceWorker(){
+    if (!('serviceWorker' in navigator)) return;
+
+    // Service workers solo funcionan en HTTPS o localhost.
+    if (location.protocol !== 'https:' && location.hostname !== 'localhost' && location.hostname !== '127.0.0.1'){
+      return;
+    }
+
+    try{
+      const reg = await navigator.serviceWorker.register('./sw.js', {scope:'./'});
+      console.log('Service Worker registrado', reg.scope);
+    }catch(err){
+      console.warn('No se pudo registrar Service Worker', err);
+    }
+  }
+
+  async function generate(){
+    busy(el.generateBtn, true, 'Generando');
+    try{
+      // Mail123 permite usar un pseudo propio y cualquiera de sus dominios activos.
+      // Generamos aquí un alias corto y fácil de copiar.
+      box = await buildShortMailbox();
+      if (!box?.address) throw new Error('No llegó una dirección válida');
+      save(); rememberAddress(box.address); render(); renderMessages([]);
+      startPolling();
+      await refresh(false);
+      toast('Correo generado');
+    }catch(err){
+      console.error(err);
+      alert('No pude generar el correo.\n\n' + err.message);
+    }finally{
+      busy(el.generateBtn, false);
+    }
+  }
+
+
+  function normalizeEmail(value){
+    return String(value || '').trim().toLowerCase();
+  }
+
+  function isValidEmail(value){
+    return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
+  }
+
+  function syncAddressFromInput(){
+    const typed = normalizeEmail(el.emailAddress.value);
+    if (!isValidEmail(typed)) {
+      throw new Error('Escribe un correo temporal válido.');
+    }
+
+    if (!box || box.address !== typed){
+      box = {
+        ...(box || {}),
+        address: typed,
+        createdAt: box?.createdAt || Date.now()
+      };
+      save();
+      rememberAddress(typed);
+      el.emailAddress.value = typed;
+    }
+    return typed;
+  }
+
+
+  function messageIdOf(m){
+    return m?.id || m?.message_id || m?.msg_id || m?.filename || '';
+  }
+
+  async function fetchMessageDetailForOtp(message){
+    const id = messageIdOf(message);
+    if (!id || !box?.address) return '';
+
+    const key = otpCacheKey(box.address, id);
+    const cached = otpCache[key]?.otp;
+    if (cached) return cached;
+
+    try{
+      const address = encodeURIComponent(box.address);
+      const mid = encodeURIComponent(id);
+      const raw = await getJSON(`${API}/mailbox/${address}/messages/${mid}`);
+      const m = unwrapMessage(raw);
+      const body = bestBodyText(m, raw);
+      const htmlReadable = extractReadableHtmlText(body.html);
+
+      const apiOtp =
+        cleanOtp(message?.otp_code || message?.otp) ||
+        findOtpField(m) ||
+        findOtpField(raw);
+
+      const otp = detectOtpDeep(
+        m?.subject || message?.subject || '',
+        body.text,
+        htmlReadable,
+        apiOtp
+      );
+
+      otpCache[key] = {
+        otp: otp || '',
+        ts: Date.now()
+      };
+      saveOtpCache();
+      return otp || '';
+    }catch(err){
+      console.warn('No pude hidratar OTP del mensaje', id, err);
+      return '';
+    }
+  }
+
+  async function enrichMessagesWithOtp(messages){
+    // Primero usa OTP ya incluido en el resumen o cache.
+    const enriched = messages.map(m => {
+      const id = messageIdOf(m);
+      const key = otpCacheKey(box?.address || '', id);
+      const direct = cleanOtp(m?.otp_code || m?.otp);
+      return {...m, __otp: direct || otpCache[key]?.otp || ''};
+    });
+
+    // Para no bombardear la API, consulta detalle solo de los primeros mensajes
+    // que no tengan OTP y que aún no estén cacheados.
+    const targets = enriched
+      .filter(m => !m.__otp && messageIdOf(m))
+      .slice(0,6);
+
+    for (const m of targets){
+      const id = messageIdOf(m);
+      const key = otpCacheKey(box.address, id);
+      if (otpCache[key] && 'otp' in otpCache[key]) continue;
+      m.__otp = await fetchMessageDetailForOtp(m);
+    }
+
+    // Sincroniza el OTP enriquecido en todos los mensajes desde cache.
+    enriched.forEach(m => {
+      if (!m.__otp){
+        const id = messageIdOf(m);
+        const key = otpCacheKey(box.address, id);
+        m.__otp = otpCache[key]?.otp || '';
+      }
+    });
+
+    return enriched;
+  }
+
+  async function refresh(showToast=true){
+    if (refreshInFlight) return;
+    refreshInFlight = true;
+    busy(el.refreshBtn, true, 'Actualizando');
+    try{
+      const typedAddress = syncAddressFromInput();
+      const address = encodeURIComponent(typedAddress);
+      const data = await getJSON(`${API}/mailbox/${address}/messages`);
+      const rawMessages = Array.isArray(data) ? data : (data?.messages || []);
+      const messages = await enrichMessagesWithOtp(rawMessages);
+
+      const currentIds = new Set(messages.map(messageIdOf).filter(Boolean));
+      const newIds = [...currentIds].filter(id => !lastMessageIds.has(id));
+      const hadPreviousSnapshot = lastMessageIds.size > 0;
+      lastMessageIds = currentIds;
+
+      renderMessages(messages, hadPreviousSnapshot ? new Set(newIds) : new Set());
+      render();
+      rememberAddress(typedAddress);
+
+      const otpMessage = messages.find(m => m.__otp && (!hadPreviousSnapshot || newIds.includes(messageIdOf(m))));
+      if (otpMessage && waitUntil > Date.now()){
+        stopWaitMode();
+        const otp = otpMessage.__otp;
+        toast(`Código recibido: ${otp}`);
+        try{ navigator.vibrate?.([180,80,180]); }catch{}
+        setTimeout(() => {
+          const target = document.querySelector(`[data-message-id="${CSS.escape(String(messageIdOf(otpMessage)))}"]`);
+          if (target){
+            target.classList.add('flash-new');
+            target.scrollIntoView({behavior:'smooth',block:'center'});
+          }
+        }, 150);
+      }
+
+      el.lastUpdate.textContent = 'Actualizado ' + new Date().toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'});
+      if (showToast) toast('Bandeja actualizada');
+    }catch(err){
+      console.error(err);
+      el.lastUpdate.textContent = 'Error al actualizar';
+      if (showToast) alert('No pude actualizar la bandeja.\n\n' + err.message);
+    }finally{
+      refreshInFlight = false;
+      busy(el.refreshBtn, false);
+    }
+  }
+
+  function escapeHtml(v=''){
+    return String(v).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[c]));
+  }
+
+  function renderMessages(items, newIds=new Set()){
+    el.messageList.innerHTML = '';
+    el.emptyInbox.hidden = items.length > 0;
+    el.mailCount.textContent = `${items.length} ${items.length===1?'correo':'correos'}`;
+
+    items.forEach(m => {
+      const id = messageIdOf(m);
+      if (!id) return;
+      const otp = cleanOtp(m.__otp || m.otp_code || m.otp);
+      const isNew = newIds.has(String(id));
+
+      const senderValue =
+        m.from || m.sender || m.from_email || 'Remitente desconocido';
+      const senderInfo = senderParts(senderValue);
+
+      const dateRaw = m.date || m.created_at || m.createdAt || m.timestamp || m.ts;
+      let dateText = '';
+      if (dateRaw){
+        const d = typeof dateRaw === 'number'
+          ? new Date(dateRaw < 1e12 ? dateRaw*1000 : dateRaw)
+          : new Date(dateRaw);
+        if (!isNaN(d)) dateText = d.toLocaleString([], {day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit'});
+      }
+
+      const intro = m.intro || m.preview || m.snippet || '';
+
+      const card = document.createElement('article');
+      card.className = 'message' + (isNew ? ' flash-new' : '');
+      card.dataset.messageId = String(id);
+      card.innerHTML = `
+        <div class="message-top">
+          <div class="sender">${escapeHtml(senderInfo.name)}${senderInfo.email ? `<span class="sender-email">${escapeHtml(senderInfo.email)}</span>` : ""}</div>
+          <div class="time">${escapeHtml(dateText)}</div>
+        </div>
+        <div class="subject">${escapeHtml(m.subject || '(Sin asunto)')}</div>
+        ${intro ? `<div class="intro">${escapeHtml(intro)}</div>` : ''}
+        ${isNew ? `<div class="new-badge">● Nuevo</div>` : ''}
+        ${otp ? `<div class="otp-preview"><span>🔢 <span class="otp-inline">${escapeHtml(otp)}</span></span><button class="copy-inline" type="button">Copiar</button></div>` : ''}
+      `;
+
+      const copyBtn = card.querySelector('.copy-inline');
+      if (copyBtn){
+        copyBtn.addEventListener('click', e => {
+          e.stopPropagation();
+          copyText(otp);
+        });
+      }
+
+      card.addEventListener('click', () => openMessage(id, m));
+      el.messageList.appendChild(card);
+    });
+  }
+
+  function htmlToText(html){
+    try{
+      const doc = new DOMParser().parseFromString(String(html || ''), 'text/html');
+      doc.querySelectorAll('script,style,noscript,svg').forEach(n => n.remove());
+      return (doc.body?.textContent || '')
+        .replace(/\u00a0/g,' ')
+        .replace(/[ \t]+\n/g,'\n')
+        .replace(/\n{3,}/g,'\n\n')
+        .trim();
+    }catch{return '';}
+  }
+
+  function decodeMaybeBase64(value){
+    const s = String(value || '').trim();
+    if (!s || s.length < 16) return s;
+    // Solo intenta decodificar cadenas que realmente parecen base64.
+    if (!/^[A-Za-z0-9+/=\r\n]+$/.test(s) || s.replace(/\s/g,'').length % 4 !== 0) return s;
+    try{
+      const raw = atob(s.replace(/\s/g,''));
+      const bytes = Uint8Array.from(raw, c => c.charCodeAt(0));
+      const decoded = new TextDecoder('utf-8', {fatal:false}).decode(bytes);
+      const printable = decoded.replace(/[^\x09\x0A\x0D\x20-\x7E\u00A0-\uFFFF]/g,'').length;
+      return printable > decoded.length * .75 ? decoded : s;
+    }catch{return s;}
+  }
+
+  function unwrapMessage(payload){
+    if (!payload || typeof payload !== 'object') return payload || {};
+    const candidates = [
+      payload.message, payload.email, payload.data, payload.result,
+      payload.item, payload.mail
+    ];
+    for (const c of candidates){
+      if (c && typeof c === 'object' && !Array.isArray(c)) return c;
+    }
+    return payload;
+  }
+
+  function findStringByKeys(obj, wantedKeys, depth=0, seen=new Set()){
+    if (!obj || typeof obj !== 'object' || depth > 5 || seen.has(obj)) return '';
+    seen.add(obj);
+    const wanted = new Set(wantedKeys.map(k => k.toLowerCase()));
+
+    for (const [key, value] of Object.entries(obj)){
+      if (wanted.has(String(key).toLowerCase()) && typeof value === 'string' && value.trim()){
+        return decodeMaybeBase64(value);
+      }
+    }
+    for (const value of Object.values(obj)){
+      if (value && typeof value === 'object'){
+        const found = findStringByKeys(value, wantedKeys, depth+1, seen);
+        if (found) return found;
+      }
+    }
+    return '';
+  }
+
+  function collectStrings(obj, depth=0, seen=new Set(), out=[]){
+    if (obj == null || depth > 5) return out;
+    if (typeof obj === 'string'){
+      const v = decodeMaybeBase64(obj).trim();
+      if (v) out.push(v);
+      return out;
+    }
+    if (typeof obj !== 'object' || seen.has(obj)) return out;
+    seen.add(obj);
+    if (Array.isArray(obj)){
+      obj.forEach(v => collectStrings(v, depth+1, seen, out));
+    }else{
+      Object.values(obj).forEach(v => collectStrings(v, depth+1, seen, out));
+    }
+    return out;
+  }
+
+  function bestBodyText(message, rawPayload){
+    const textKeys = [
+      'text','text_body','body_text','plain','plain_text','plaintext',
+      'body_plain','content_text','message_text','decoded_text','decoded_body'
+    ];
+    const htmlKeys = [
+      'html','html_body','body_html','content_html','message_html','decoded_html'
+    ];
+    const bodyKeys = ['body','content','payload'];
+
+    let text = findStringByKeys(message, textKeys);
+    if (!text) text = findStringByKeys(rawPayload, textKeys);
+    if (text && /<([a-z][\s\S]*?)>/i.test(text)) text = htmlToText(text);
+
+    let htmlBody = findStringByKeys(message, htmlKeys);
+    if (!htmlBody) htmlBody = findStringByKeys(rawPayload, htmlKeys);
+
+    if (!text && htmlBody) text = htmlToText(htmlBody);
+
+    if (!text){
+      let generic = findStringByKeys(message, bodyKeys);
+      if (!generic) generic = findStringByKeys(rawPayload, bodyKeys);
+      if (generic){
+        text = /<([a-z][\s\S]*?)>/i.test(generic) ? htmlToText(generic) : generic;
+        if (!htmlBody && /<([a-z][\s\S]*?)>/i.test(generic)) htmlBody = generic;
+      }
+    }
+
+    // Último recurso: busca el string "de cuerpo" más largo dentro de la respuesta.
+    if (!text){
+      const candidates = collectStrings(rawPayload)
+        .filter(s => s.length >= 35)
+        .filter(s => !/^https?:\/\//i.test(s))
+        .filter(s => !/^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$/i.test(s))
+        .sort((a,b) => b.length - a.length);
+
+      const candidate = candidates.find(s =>
+        /\s/.test(s) &&
+        !/^[A-Za-z0-9+/=\r\n]{80,}$/.test(s.replace(/\s/g,''))
+      );
+      if (candidate){
+        text = /<([a-z][\s\S]*?)>/i.test(candidate) ? htmlToText(candidate) : candidate;
+        if (!htmlBody && /<([a-z][\s\S]*?)>/i.test(candidate)) htmlBody = candidate;
+      }
+    }
+
+    return {
+      text: (text || '').trim(),
+      html: (htmlBody || '').trim()
+    };
+  }
+
+  function extractLinks(...sources){
+    const set = new Set();
+
+    const add = value => {
+      if (!value) return;
+      let candidate = String(value).trim()
+        .replace(/&amp;/g,'&')
+        .replace(/[),.;]+$/,'');
+
+      try{
+        const u = new URL(candidate);
+        if (u.protocol !== 'http:' && u.protocol !== 'https:') return;
+
+        const full = (u.hostname + u.pathname + u.search).toLowerCase();
+
+        // Descarta recursos y enlaces típicamente irrelevantes.
+        const bad = [
+          'unsubscribe','privacy','terms','legal','support','help',
+          'facebook','instagram','twitter','tiktok','youtube',
+          'preferences','notification-settings',
+          '.png','.jpg','.jpeg','.gif','.webp','.svg','.css','.js',
+          'pixel','beacon','tracking','track','open.gif','click.gif'
+        ];
+        if (bad.some(x => full.includes(x))) return;
+
+        set.add(u.href);
+      }catch{}
+    };
+
+    for (const source of sources){
+      if (!source) continue;
+
+      if (typeof source === 'string'){
+        (source.match(/https?:\/\/[^\s<>"']+/gi) || []).forEach(add);
+
+        if (/<([a-z][\s\S]*?)>/i.test(source)){
+          try{
+            const doc = new DOMParser().parseFromString(source, 'text/html');
+            doc.querySelectorAll('a[href]').forEach(a => add(a.getAttribute('href')));
+          }catch{}
+        }
+      }else if (typeof source === 'object'){
+        collectStrings(source).forEach(s => {
+          (s.match(/https?:\/\/[^\s<>"']+/gi) || []).forEach(add);
+
+          if (/<a[\s>]/i.test(s)){
+            try{
+              const doc = new DOMParser().parseFromString(s, 'text/html');
+              doc.querySelectorAll('a[href]').forEach(a => add(a.getAttribute('href')));
+            }catch{}
+          }
+        });
+      }
+    }
+
+    const links = [...set];
+
+    // Prioriza enlaces que parezcan de acción/verificación.
+    const score = href => {
+      const s = href.toLowerCase();
+      let points = 0;
+
+      [
+        'verify','verification','confirm','confirmation',
+        'activate','activation','signin','sign-in','login',
+        'authorize','authorization','account','identity',
+        'password','email','secure','token','magic'
+      ].forEach(k => { if (s.includes(k)) points += 5; });
+
+      // Disney y otros proveedores suelen usar rutas de cuenta.
+      if (/disney|netflix|amazon|microsoft|google|canva|max\.com|hbo|primevideo/.test(s)) points += 2;
+
+      // Enlaces con token/código suelen ser los útiles.
+      if (/[?&](token|code|key|state|id_token|verification|confirm)=/i.test(href)) points += 6;
+
+      return points;
+    };
+
+    return links
+      .map(href => ({href, score:score(href)}))
+      .sort((a,b) => b.score - a.score)
+      .filter((item, index) => item.score > 0 || index === 0)
+      .slice(0,3)
+      .map(item => item.href);
+  }
+
+  function cleanOtp(value){
+    if (value == null) return '';
+    const s = String(value).trim().replace(/\s+/g,' ');
+
+    // OTP numérico típico: 4 a 8 dígitos.
+    if (/^\d{4,8}$/.test(s)) return s;
+
+    // OTP alfanumérico: debe contener al menos una letra Y un número.
+    // No acepta frases como "for Disney".
+    if (
+      /^[A-Z0-9-]{4,12}$/i.test(s) &&
+      /[A-Z]/i.test(s) &&
+      /\d/.test(s)
+    ) return s;
+
+    return '';
+  }
+
+  function findOtpField(obj, depth=0, seen=new Set()){
+    if (!obj || typeof obj !== 'object' || depth > 5 || seen.has(obj)) return '';
+    seen.add(obj);
+
+    // No usar la clave genérica "code", porque muchas APIs la usan para otras cosas.
+    const otpKeys = new Set([
+      'otp_code','otp','verification_code','verificationcode',
+      'security_code','securitycode','passcode',
+      'one_time_passcode','onetimepasscode','one_time_code'
+    ]);
+
+    for (const [key,value] of Object.entries(obj)){
+      if (otpKeys.has(String(key).toLowerCase())){
+        const otp = cleanOtp(value);
+        if (otp) return otp;
+      }
+    }
+
+    for (const value of Object.values(obj)){
+      if (value && typeof value === 'object'){
+        const otp = findOtpField(value, depth+1, seen);
+        if (otp) return otp;
+      }
+    }
+    return '';
+  }
+
+  function detectOtp(text){
+    const s = String(text || '')
+      .replace(/\u00a0/g,' ')
+      .replace(/[ \t]+/g,' ');
+
+    const numericPatterns = [
+      /(?:one[- ]time\s+(?:passcode|code)|passcode|verification\s+code|security\s+code|otp|c[oó]digo(?:\s+de)?\s+(?:verificaci[oó]n|seguridad)?)[^0-9]{0,60}(\d{4,8})/i,
+      /(\d{4,8})[^0-9]{0,60}(?:is\s+your\s+(?:one[- ]time\s+)?(?:passcode|code)|es\s+tu\s+c[oó]digo)/i
+    ];
+
+    for (const re of numericPatterns){
+      const m = s.match(re);
+      if (m && cleanOtp(m[1])) return m[1];
+    }
+
+    // Códigos alfanuméricos cercanos a una etiqueta de código.
+    const alpha = s.match(
+      /(?:verification\s+code|security\s+code|otp|passcode|c[oó]digo)[^A-Z0-9]{0,35}([A-Z0-9-]{4,12})/i
+    );
+    if (alpha){
+      const otp = cleanOtp(alpha[1]);
+      if (otp) return otp;
+    }
+
+    // Como último recurso, si solo existe UN bloque aislado de 6 dígitos en el correo,
+    // normalmente corresponde al OTP.
+    const sixes = [...s.matchAll(/(?:^|[^\d])(\d{6})(?:[^\d]|$)/g)]
+      .map(m => m[1]);
+    const uniqueSixes = [...new Set(sixes)];
+    if (uniqueSixes.length === 1) return uniqueSixes[0];
+
+    return '';
+  }
+
+
+  function extractReadableHtmlText(html){
+    if (!html) return '';
+    try{
+      const doc = new DOMParser().parseFromString(String(html), 'text/html');
+      doc.querySelectorAll('script,style,noscript,svg,canvas').forEach(n => n.remove());
+
+      // Agrega saltos alrededor de bloques para que los códigos no se peguen al texto.
+      doc.querySelectorAll('br').forEach(n => n.replaceWith('\n'));
+      doc.querySelectorAll('p,div,td,tr,table,section,article,h1,h2,h3,h4,h5,h6,li').forEach(n => {
+        n.insertAdjacentText('beforebegin', '\n');
+        n.insertAdjacentText('afterend', '\n');
+      });
+
+      return (doc.body?.textContent || '')
+        .replace(/\u00a0/g, ' ')
+        .replace(/[ \t]+/g, ' ')
+        .replace(/\n\s*\n\s*\n+/g, '\n\n')
+        .trim();
+    }catch{
+      return '';
+    }
+  }
+
+  function detectOtpDeep(subject, plainText, htmlText, apiOtp=''){
+    const direct = cleanOtp(apiOtp);
+    if (direct) return direct;
+
+    const sources = [
+      String(subject || ''),
+      String(plainText || ''),
+      String(htmlText || '')
+    ];
+
+    // 1. Detección contextual normal.
+    for (const source of sources){
+      const otp = detectOtp(source);
+      if (otp) return otp;
+    }
+
+    // 2. Une texto plano + HTML y busca códigos de 4-8 dígitos
+    // cercanos a "passcode/code/OTP".
+    const combined = sources.join('\n')
+      .replace(/\u00a0/g,' ')
+      .replace(/[ \t]+/g,' ');
+
+    const contextual = [
+      /(?:one[- ]time\s+passcode|passcode|verification\s+code|security\s+code|otp|c[oó]digo(?:\s+de)?\s+(?:verificaci[oó]n|seguridad)?)[\s\S]{0,180}?(\d{4,8})/i,
+      /(\d{4,8})[\s\S]{0,180}?(?:one[- ]time\s+passcode|passcode|verification\s+code|security\s+code|otp|c[oó]digo)/i
+    ];
+    for (const re of contextual){
+      const m = combined.match(re);
+      if (m && cleanOtp(m[1])) return m[1];
+    }
+
+    // 3. Disney y servicios similares pueden separar visualmente cada dígito.
+    // Detecta secuencias como "1 2 3 4 5 6".
+    const spaced = combined.match(/(?:^|[^\d])((?:\d[\s\-]){3,7}\d)(?:[^\d]|$)/);
+    if (spaced){
+      const collapsed = spaced[1].replace(/[^\d]/g,'');
+      if (/^\d{4,8}$/.test(collapsed)) return collapsed;
+    }
+
+    // 4. Último recurso: un único número aislado de 4-8 dígitos
+    // dentro del cuerpo HTML legible.
+    const candidates = [...String(htmlText || '').matchAll(/(?:^|[^\d])(\d{4,8})(?:[^\d]|$)/g)]
+      .map(m => m[1])
+      .filter(x => !/^20\d{2}$/.test(x)); // evita años comunes
+    const unique = [...new Set(candidates)];
+    if (unique.length === 1) return unique[0];
+
+    return '';
+  }
+
+  function sanitizeEmailHtml(html){
+    try{
+      const doc = new DOMParser().parseFromString(String(html || ''), 'text/html');
+
+      // El iframe además va sin permisos ("sandbox"), pero limpiamos igualmente.
+      doc.querySelectorAll('script,iframe,frame,object,embed,form,input,button,textarea,select,meta,base,link,noscript')
+        .forEach(n => n.remove());
+
+      // Evita pixels/tracking y recursos externos.
+      doc.querySelectorAll('img,source,picture,video,audio').forEach(n => n.remove());
+
+      doc.querySelectorAll('*').forEach(node => {
+        [...node.attributes].forEach(attr => {
+          const name = attr.name.toLowerCase();
+          const value = String(attr.value || '');
+
+          if (name.startsWith('on')) node.removeAttribute(attr.name);
+
+          if (['src','srcset','background','poster'].includes(name)){
+            node.removeAttribute(attr.name);
+          }
+
+          if (name === 'href'){
+            try{
+              const u = new URL(value, 'https://invalid.local/');
+              if (!['http:','https:'].includes(u.protocol)) node.removeAttribute(attr.name);
+            }catch{
+              node.removeAttribute(attr.name);
+            }
+          }
+
+          if (name === 'style'){
+            // Quita URLs externas de estilos, pero conserva colores/tamaños/layout.
+            node.setAttribute('style',
+              value.replace(/url\s*\([^)]*\)/gi, 'none')
+            );
+          }
+        });
+      });
+
+      // Añade estilos base para que correos oscuros/claros sean legibles en móvil.
+      const style = doc.createElement('style');
+      style.textContent = `
+        html,body{margin:0!important;padding:0!important;max-width:100%!important}
+        body{padding:14px!important;box-sizing:border-box!important;font-family:Arial,Helvetica,sans-serif!important}
+        table{max-width:100%!important}
+        td{max-width:100%!important}
+        *{box-sizing:border-box!important;max-width:100%}
+        a{word-break:break-word}
+      `;
+      doc.head.appendChild(style);
+
+      return '<!doctype html>\n' + doc.documentElement.outerHTML;
+    }catch{
+      return '';
+    }
+  }
+
+  function showRenderedEmail(html, fallbackText){
+    const hasHtml = !!String(html || '').trim();
+    const hasText = !!String(fallbackText || '').trim();
+
+    el.mailViewTitle.hidden = !(hasHtml || hasText);
+    el.mailFrameWrap.hidden = !(hasHtml || hasText);
+
+    if (!hasHtml && !hasText){
+      el.mailFrame.removeAttribute('srcdoc');
+      return;
+    }
+
+    if (hasHtml){
+      const safe = sanitizeEmailHtml(html);
+      el.mailFrame.srcdoc = safe || `<pre>${escapeHtml(fallbackText || '')}</pre>`;
+    }else{
+      const safeText = escapeHtml(fallbackText || '');
+      el.mailFrame.srcdoc = `<!doctype html><html><head><meta name="viewport" content="width=device-width,initial-scale=1"></head><body style="font-family:Arial,sans-serif;padding:16px;white-space:pre-wrap;line-height:1.55">${safeText}</body></html>`;
+    }
+  }
+
+  function senderParts(source){
+    const raw = typeof source === 'string'
+      ? source
+      : (source?.name && source?.address ? `${source.name} <${source.address}>` : (source?.address || ''));
+
+    const match = String(raw || '').match(/^\s*(.*?)\s*<([^>]+)>\s*$/);
+    if (match){
+      return {name: match[1].trim() || match[2].trim(), email: match[2].trim()};
+    }
+    if (/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(String(raw).trim())){
+      return {name:String(raw).trim(), email:''};
+    }
+    return {name:String(raw || 'Remitente desconocido').trim(), email:''};
+  }
+
+  async function openMessage(id, summary){
+    try{
+      const address = encodeURIComponent(box.address);
+      const mid = encodeURIComponent(id);
+      const raw = await getJSON(`${API}/mailbox/${address}/messages/${mid}`);
+      const m = unwrapMessage(raw);
+
+      const subject =
+        m?.subject || raw?.subject || summary?.subject || '(Sin asunto)';
+
+      const fromValue =
+        m?.from || m?.sender || m?.from_email ||
+        raw?.from || raw?.sender || raw?.from_email ||
+        summary?.from || summary?.sender || summary?.from_email;
+
+      const parts = senderParts(fromValue);
+      const body = bestBodyText(m, raw);
+
+      // Convierte el HTML en texto legible específicamente para encontrar OTP.
+      const htmlReadable = extractReadableHtmlText(body.html);
+
+      const apiOtp =
+        cleanOtp(summary?.__otp || summary?.otp_code || summary?.otp) ||
+        findOtpField(m) ||
+        findOtpField(raw);
+
+      currentOtp = detectOtpDeep(
+        subject,
+        body.text,
+        htmlReadable,
+        apiOtp
+      );
+
+      if (currentOtp){
+        const cacheKey = otpCacheKey(box.address, id);
+        otpCache[cacheKey] = {otp:currentOtp, ts:Date.now()};
+        saveOtpCache();
+      }
+
+      el.modalSubject.textContent = subject;
+      el.modalMeta.textContent =
+        `De: ${parts.name}${parts.email ? ` <${parts.email}>` : ''}`;
+
+      if (currentOtp){
+        el.otpBox.hidden = false;
+        el.otpBox.classList.add('good');
+        el.otpCode.textContent = currentOtp;
+      }else{
+        el.otpBox.hidden = true;
+        el.otpBox.classList.remove('good');
+        el.otpCode.textContent = '';
+      }
+
+      // El texto superior queda como resumen; la vista real se muestra debajo.
+      const summaryText = body.text || htmlReadable;
+      el.modalBody.textContent = summaryText
+        ? summaryText.slice(0, 600)
+        : 'Abre la vista del mensaje debajo para revisar el contenido completo.';
+
+      el.links.innerHTML = '';
+      const links = extractLinks(body.text, body.html, m, raw);
+      links.forEach((href, i) => {
+        const a = document.createElement('a');
+        a.className = 'link-btn';
+        a.href = href;
+        a.target = '_blank';
+        a.rel = 'noopener noreferrer';
+        a.textContent = links.length === 1
+          ? '🔗 Abrir enlace útil'
+          : `🔗 Abrir enlace útil ${i+1}`;
+        a.title = href;
+        el.links.appendChild(a);
+      });
+
+      // Siempre muestra el mensaje completo cuando haya HTML/texto.
+      showRenderedEmail(body.html, body.text || htmlReadable);
+
+      el.modal.classList.add('show');
+    }catch(err){
+      console.error(err);
+      alert('No pude abrir este correo.\n\n' + err.message);
+    }
+  }
+
+  async function newMailbox(){
+    if (!confirm('¿Generar un correo nuevo? Dejarás de ver la bandeja actual en esta página.')) return;
+    stopWaitMode();
+    box = null; save(); stopPolling(); render(); renderMessages([]);
+    await generate();
+  }
+
+
+  function updateWaitButton(){
+    if (!el.waitBtn) return;
+
+    if (waitUntil > Date.now()){
+      const left = Math.max(0, waitUntil - Date.now());
+      const mm = Math.floor(left / 60000);
+      const ss = Math.floor((left % 60000) / 1000);
+      el.waitBtn.classList.add('active');
+      el.waitBtn.textContent = `⚡ Esperando código · ${mm}:${String(ss).padStart(2,'0')}`;
+    }else{
+      el.waitBtn.classList.remove('active');
+      el.waitBtn.textContent = '⚡ Esperar código';
+    }
+  }
+
+  async function startWaitMode(){
+    if (!box?.address){
+      toast('Primero genera o escribe un correo');
+      return;
+    }
+
+    if (waitUntil > Date.now()){
+      stopWaitMode();
+      toast('Espera automática detenida');
+      return;
+    }
+
+    waitUntil = Date.now() + WAIT_DURATION_MS;
+    updateWaitButton();
+
+    // Revisión inmediata.
+    await refresh(false);
+
+    if (waitUntil <= Date.now()) return;
+
+    waitTimer = setInterval(() => refresh(false), WAIT_POLL_MS);
+    waitCountdownTimer = setInterval(() => {
+      if (waitUntil <= Date.now()){
+        stopWaitMode();
+        toast('Terminó la espera automática');
+      }else{
+        updateWaitButton();
+      }
+    }, 1000);
+  }
+
+  function stopWaitMode(){
+    if (waitTimer) clearInterval(waitTimer);
+    if (waitCountdownTimer) clearInterval(waitCountdownTimer);
+    waitTimer = null;
+    waitCountdownTimer = null;
+    waitUntil = 0;
+    updateWaitButton();
+  }
+
+  function currentPollInterval(){
+    return document.visibilityState === 'visible'
+      ? ACTIVE_POLL_MS
+      : HIDDEN_POLL_MS;
+  }
+
+  function updateLivePill(){
+    if (!el.livePill) return;
+    if (document.visibilityState === 'visible'){
+      el.livePill.classList.add('ok');
+      el.livePill.innerHTML = '<b>En vivo · 7 s</b>';
+    }else{
+      el.livePill.classList.remove('ok');
+      el.livePill.innerHTML = '<b>En segundo plano</b>';
+    }
+  }
+
+  function scheduleNextPoll(){
+    if (pollTimer) clearTimeout(pollTimer);
+    pollTimer = setTimeout(async () => {
+      if (box?.address){
+        await refresh(false);
+      }
+      scheduleNextPoll();
+    }, currentPollInterval());
+  }
+
+  function startPolling(){
+    stopPolling();
+    updateLivePill();
+    scheduleNextPoll();
+  }
+
+  function stopPolling(){
+    if (pollTimer) clearTimeout(pollTimer);
+    pollTimer = null;
+  }
+
+  function handleVisibilityChange(){
+    updateLivePill();
+    if (!box?.address) return;
+
+    // Al volver a la página, consulta inmediatamente.
+    if (document.visibilityState === 'visible'){
+      refresh(false);
+    }
+    scheduleNextPoll();
+  }
+
+
+  window.addEventListener('beforeinstallprompt', e => {
+    e.preventDefault();
+    deferredInstallPrompt = e;
+    renderInstallState();
+  });
+
+  window.addEventListener('appinstalled', () => {
+    deferredInstallPrompt = null;
+    el.installBtn.hidden = true;
+    el.installHint.classList.remove('show');
+    toast('App instalada');
+  });
+
+  window.addEventListener('online', updateOnlineState);
+  window.addEventListener('offline', updateOnlineState);
+  el.installBtn.addEventListener('click', installApp);
+
+
+  document.addEventListener('visibilitychange', handleVisibilityChange);
+
+  el.generateBtn.addEventListener('click', generate);
+  el.copyEmailBtn.addEventListener('click', () => {
+    const current = normalizeEmail(el.emailAddress.value || box?.address);
+    if (current) copyText(current);
+  });
+  el.refreshBtn.addEventListener('click', () => refresh(true));
+  el.emailAddress.addEventListener('keydown', e => {
+    if (e.key === 'Enter'){
+      e.preventDefault();
+      el.emailAddress.blur();
+      lastMessageIds = new Set();
+      refresh(true);
+    }
+  });
+  el.newBtn.addEventListener('click', newMailbox);
+  el.waitBtn.addEventListener('click', startWaitMode);
+  el.closeModalBtn.addEventListener('click', () => {
+    el.modal.classList.remove('show');
+    el.mailFrame.removeAttribute('srcdoc');
+  });
+  el.modal.addEventListener('click', e => {
+    if(e.target===el.modal){
+      el.modal.classList.remove('show');
+      el.mailFrame.removeAttribute('srcdoc');
+    }
+  });
+  el.copyOtpBtn.addEventListener('click', () => currentOtp && copyText(currentOtp));
+
+  updateOnlineState();
+  renderInstallState();
+  registerServiceWorker();
+
+  load();
+  loadHistory();
+  loadOtpCache();
+  if (box?.address) rememberAddress(box.address);
+  render();
+  if (box?.address){
+    startPolling();
+    refresh(false);
+  }
+})();
+</script>
+</body>
+</html>
