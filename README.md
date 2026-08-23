@@ -1,4 +1,4 @@
-# Correo Temporal Mini v16 — PWA
+# Correo Temporal Mini v18 — PWA
 
 Esta versión está preparada para usarse e instalarse tanto en PC como en celular.
 
@@ -133,3 +133,28 @@ Publica `cloudflare-worker/worker.js` como Cloudflare Worker y pega su URL HTTPS
 **Cloudflare Worker · Mailnesia + Guerrilla Mail**
 
 La URL se guarda solamente en el navegador.
+
+
+## Cambio v17 — limpieza y orden de dominios
+- Los gestores con `0` dominios ya no aparecen en la fila de estado.
+- Los gestores activos se muestran únicamente cuando realmente aportan dominios.
+- El selector prioriza gestores con mayor variedad:
+  1. Mailnesia
+  2. Guerrilla Mail
+  3. Mail123
+  4. Mail.gw
+  5. Mail.tm
+  6. DropMail
+- Los dominios se ordenan priorizando:
+  `.shop`, `.site`, `.net`, `.us`, `.cloud` y después el resto.
+- El modo Automático también prioriza esas extensiones antes de escoger aleatoriamente.
+
+
+## Cambio v18 — interfaz compacta
+- Se redujo el espacio vertical de la cabecera y las tarjetas.
+- La sección de dominio ocupa menos alto.
+- Filtros TLD y gestores tienen menos separación.
+- Cloudflare Worker queda cerrado por defecto.
+- DropMail queda cerrado por defecto.
+- Acciones y estado del correo tienen menos margen vertical.
+- La bandeja de entrada aparece bastante más arriba en PC y celular.
