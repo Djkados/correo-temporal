@@ -246,6 +246,77 @@
       display:none
     }
     .offline-banner.show{display:block}
+    .top-tools{display:flex;gap:8px;align-items:center;margin-left:auto}
+    .settings-btn{
+      min-height:42px;border:1px solid #34517c;background:rgba(93,169,255,.06);
+      color:#dcecff;border-radius:13px;padding:0 13px;font-weight:800;cursor:pointer
+    }
+    .domain-meta-row{
+      display:flex;align-items:center;justify-content:space-between;gap:10px;
+      margin-top:7px;flex-wrap:wrap
+    }
+    .manager-summary{
+      color:var(--muted);font-size:10.5px;font-weight:750
+    }
+    .manager-summary b{color:#dcecff}
+    .status-compact{
+      margin-top:9px;color:#cbd5e4;font-size:11.5px;font-weight:750;
+      display:flex;gap:7px;align-items:center;flex-wrap:wrap
+    }
+    .status-dot{width:7px;height:7px;border-radius:50%;background:var(--ok);display:inline-block}
+    .status-sep{color:#52617a}
+    .otp-banner{
+      display:none;margin-top:10px;border:1px solid rgba(70,216,137,.35);
+      background:rgba(70,216,137,.08);border-radius:14px;padding:11px 12px;
+      align-items:center;justify-content:space-between;gap:10px
+    }
+    .otp-banner.show{display:flex}
+    .otp-banner-label{font-size:10px;text-transform:uppercase;letter-spacing:.1em;color:#a8dabc;font-weight:850}
+    .otp-banner-code{margin-top:2px;font-size:22px;letter-spacing:.08em;font-weight:950;color:#effff4}
+    .otp-banner-actions{display:flex;gap:8px;flex:none}
+    .recent-collapsible{margin-top:9px}
+    .recent-toggle{
+      width:100%;min-height:42px;border:1px solid var(--line);border-radius:13px;
+      background:#101a30;color:var(--text);display:flex;align-items:center;justify-content:space-between;
+      padding:0 12px;font-weight:850;cursor:pointer
+    }
+    .recent-toggle small{color:var(--muted);font-weight:750}
+    .recent-panel{display:none;margin-top:8px}
+    .recent-panel.show{display:block}
+    .empty.compact-empty{
+      padding:20px 16px;min-height:104px;display:flex;align-items:center;justify-content:center;gap:12px;text-align:left
+    }
+    .compact-empty .big{font-size:28px;margin:0}
+    .compact-empty h3{margin:0;font-size:14px}
+    .compact-empty p{margin:3px 0 0;font-size:11px}
+    .settings-modal{
+      position:fixed;inset:0;background:rgba(0,0,0,.72);display:none;align-items:center;justify-content:center;
+      z-index:90;padding:18px
+    }
+    .settings-modal.show{display:flex}
+    .settings-sheet{
+      width:min(650px,100%);max-height:88vh;overflow:auto;background:#0f172a;border:1px solid var(--line);
+      border-radius:22px;padding:18px;box-shadow:0 28px 90px rgba(0,0,0,.48)
+    }
+    .settings-head{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:12px}
+    .settings-head h3{margin:0;font-size:18px}
+    .settings-block{margin-top:10px}
+    .settings-info{
+      display:flex;flex-wrap:wrap;gap:7px;margin:8px 0 0
+    }
+    .settings-chip{
+      border:1px solid var(--line);border-radius:999px;background:#101a30;color:#cbd5e4;
+      padding:6px 9px;font-size:10px;font-weight:800
+    }
+    .settings-chip.ok{color:#c9f6d9;border-color:rgba(70,216,137,.25);background:rgba(70,216,137,.07)}
+    @media(max-width:639px){
+      .top-tools{gap:6px}
+      .settings-btn,.install-btn{padding:0 10px}
+      .otp-banner{align-items:flex-start;flex-direction:column}
+      .otp-banner-actions{width:100%}
+      .otp-banner-actions .btn{width:100%}
+    }
+
     .standalone-note{font-size:11px;color:var(--muted);margin-top:6px}
     .domain-card{margin-bottom:10px;padding:12px 14px}
     .domain-grid{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:8px;align-items:end}
@@ -320,7 +391,8 @@
       <h1>Correo Temporal</h1>
       <p class="subtitle">Genera, recupera y recibe códigos casi al instante.</p>
     </div>
-    <div class="install-row">
+    <div class="top-tools">
+      <button id="settingsBtn" class="settings-btn" type="button">⚙️</button>
       <button id="installBtn" class="install-btn" hidden>⬇ Instalar</button>
     </div>
   </header>
@@ -347,35 +419,8 @@
       <button class="tld-btn" data-tld=".site" type="button">.site</button>
     </div>
 
-    <div id="providerSummary" class="provider-summary"></div>
+    <div class="domain-meta-row"><div id="managerSummary" class="manager-summary">Gestores activos: —</div><button id="openSettingsInlineBtn" class="btn small ghost" type="button">⚙️ Configuración</button></div>
 
-    
-    <details class="worker-config">
-      <summary>☁️ Worker conectado · Mailnesia + Guerrilla</summary>
-      <div class="worker-inner">
-        <div class="worker-row">
-          <input id="workerUrl" class="worker-input" type="url" placeholder="https://correo-temp-api.tuusuario.workers.dev" autocomplete="off" spellcheck="false" />
-          <button id="saveWorkerUrlBtn" class="btn ghost" type="button">Conectar Worker</button>
-        </div>
-        <div id="workerStatus" class="worker-status">
-          Sin conectar. Después de publicar el Worker, pega aquí su URL una sola vez.
-        </div>
-      </div>
-    </details>
-
-<details class="dropmail-config">
-      <summary>＋ DropMail · dominios rotativos</summary>
-      <div class="dropmail-inner">
-        <div class="token-row">
-          <input id="dropmailToken" class="token-input" type="password" placeholder="Pega tu token gratuito af_…" autocomplete="off" />
-          <button id="saveDropmailTokenBtn" class="btn ghost" type="button">Guardar token</button>
-        </div>
-        <div class="token-note">
-          DropMail requiere un token gratuito desde 2026. Se guarda solo en este dispositivo.
-          <a href="https://dropmail.me/api/" target="_blank" rel="noopener noreferrer">Obtener token gratis</a>.
-        </div>
-      </div>
-    </details>
   </section>
 
   <section id="noMailbox" class="card generate">
@@ -393,11 +438,30 @@
     </div>
     <div class="email-help">Edita la dirección y toca <b>Actualizar</b> para abrir otra bandeja.</div>
 
-    <div class="statusline">
-      <div class="pill ok"><b>Activo</b><span id="providerBadge" class="provider-badge">Mail123</span></div>
-      <div class="pill">⏳ <b>Hasta 7 días</b></div>
-      <div class="pill">📥 <b id="mailCount">0 correos</b></div>
-      <div id="livePill" class="pill ok"><b>En vivo · 7 s</b></div>
+    <div class="status-compact">
+      <span class="status-dot"></span>
+      <span id="compactStatusProvider">Activo · Mail123</span>
+      <span class="status-sep">·</span>
+      <span>En vivo 7 s</span>
+      <span class="status-sep">·</span>
+      <span id="compactMailCount">0 correos</span>
+    </div>
+
+    <div id="topOtpBanner" class="otp-banner">
+      <div>
+        <div class="otp-banner-label">Código recibido</div>
+        <div id="topOtpCode" class="otp-banner-code"></div>
+      </div>
+      <div class="otp-banner-actions">
+        <button id="copyTopOtpBtn" class="btn primary small" type="button">Copiar código</button>
+      </div>
+    </div>
+
+
+    <div hidden>
+      <span id="mailCount">0 correos</span>
+      <span id="livePill"></span>
+      <span id="providerBadge"></span>
     </div>
 
     <div class="actions">
@@ -406,31 +470,25 @@
       <button id="waitBtn" class="btn ghost wait-btn">⚡ Esperar código</button>
     </div>
 
-    <div id="recentWrap" class="recent-wrap" hidden>
-      <div class="recent-head">
-        <div class="recent-title">Correos recientes</div>
-        <div id="recentCount" class="count"></div>
-      </div>
+    <div id="recentWrap" class="recent-collapsible" hidden>
+      <button id="recentToggleBtn" class="recent-toggle" type="button">
+        <span>🕘 Correos recientes <small id="recentCount">(0)</small></span>
+        <span id="recentToggleIcon">Ver ▾</span>
+      </button>
 
-      <div class="recent-toolbar">
-        <input
-          id="recentSearch"
-          class="recent-search"
-          type="search"
-          placeholder="Buscar entre los últimos 10 correos…"
-          autocomplete="off"
-          spellcheck="false"
-        />
-        <div class="recent-nav">
-          <button id="recentPrevBtn" class="recent-nav-btn" type="button" aria-label="Ver correos anteriores">‹</button>
-          <button id="recentNextBtn" class="recent-nav-btn" type="button" aria-label="Ver más correos">›</button>
+      <div id="recentPanel" class="recent-panel">
+        <div class="recent-toolbar">
+          <input id="recentSearch" class="recent-search" type="search" placeholder="Buscar entre los últimos 10 correos…" autocomplete="off" spellcheck="false" />
+          <div class="recent-nav">
+            <button id="recentPrevBtn" class="recent-nav-btn" type="button" aria-label="Ver correos anteriores">‹</button>
+            <button id="recentNextBtn" class="recent-nav-btn" type="button" aria-label="Ver más correos">›</button>
+          </div>
         </div>
+        <div id="recentList" class="recent-list"></div>
+        <div id="recentEmpty" class="recent-empty" hidden>No encontré correos con esa búsqueda.</div>
       </div>
-
-      <div id="recentList" class="recent-list"></div>
-      <div id="recentEmpty" class="recent-empty" hidden>No encontré correos con esa búsqueda.</div>
     </div>
-  </section>
+</section>
 
   <div id="inboxWrap" hidden>
     <div class="section-head">
@@ -438,7 +496,7 @@
       <span id="lastUpdate" class="count">Sin actualizar</span>
     </div>
 
-    <section id="emptyInbox" class="card empty">
+    <section id="emptyInbox" class="card empty compact-empty">
       <div class="big">📭</div>
       <h3>No ha llegado ningún correo</h3>
       <p>Mientras esta página esté abierta, la bandeja se revisa automáticamente <b>cada 7 segundos</b>. También puedes tocar <b>Actualizar</b>.</p>
@@ -448,12 +506,7 @@
   </div>
 
   <p class="footer">
-    Gestores:
-    <a href="https://mail123.fr" target="_blank" rel="noopener noreferrer">Mail123</a>,
-    <a href="https://mail.tm" target="_blank" rel="noopener noreferrer">Mail.tm</a>,
-    <a href="https://mail.gw" target="_blank" rel="noopener noreferrer">Mail.gw</a>
-    y <a href="https://dropmail.me" target="_blank" rel="noopener noreferrer">DropMail</a>.
-    El buzón actual queda guardado en este dispositivo.
+    <span id="footerManagers">Gestores conectados: —</span> · El buzón actual queda guardado en este dispositivo.
   </p>
 </main>
 
@@ -485,6 +538,50 @@
   </div>
 </div>
 
+
+
+<div id="settingsModal" class="settings-modal" role="dialog" aria-modal="true" aria-labelledby="settingsTitle">
+  <div class="settings-sheet">
+    <div class="settings-head">
+      <div>
+        <div class="eyebrow">Configuración</div>
+        <h3 id="settingsTitle">Gestores de correo</h3>
+      </div>
+      <button id="closeSettingsBtn" class="icon-btn" type="button">✕</button>
+    </div>
+
+    <div id="settingsProviderSummary" class="settings-info"></div>
+
+    <div class="settings-block">
+      <details class="worker-config">
+        <summary>☁️ Cloudflare Worker · Mailnesia + Guerrilla</summary>
+        <div class="worker-inner">
+          <div class="worker-row">
+            <input id="workerUrl" class="worker-input" type="url" placeholder="https://correo-temp-api.tuusuario.workers.dev" autocomplete="off" spellcheck="false" />
+            <button id="saveWorkerUrlBtn" class="btn ghost" type="button">Conectar Worker</button>
+          </div>
+          <div id="workerStatus" class="worker-status">Sin conectar.</div>
+        </div>
+      </details>
+    </div>
+
+    <div class="settings-block">
+      <details class="dropmail-config">
+        <summary>＋ DropMail · dominios rotativos</summary>
+        <div class="dropmail-inner">
+          <div class="token-row">
+            <input id="dropmailToken" class="token-input" type="password" placeholder="Pega tu token gratuito af_…" autocomplete="off" />
+            <button id="saveDropmailTokenBtn" class="btn ghost" type="button">Guardar token</button>
+          </div>
+          <div class="token-note">
+            DropMail requiere token gratuito. Se guarda solo en este dispositivo.
+            <a href="https://dropmail.me/api/" target="_blank" rel="noopener noreferrer">Obtener token</a>.
+          </div>
+        </div>
+      </details>
+    </div>
+  </div>
+</div>
 
 <div id="confirmModal" class="confirm-modal" role="dialog" aria-modal="true" aria-labelledby="confirmTitle">
   <div class="confirm-card">
@@ -541,15 +638,15 @@
 
   const $ = id => document.getElementById(id);
   const el = {
-    noMailbox:$('noMailbox'), mailbox:$('mailbox'), inboxWrap:$('inboxWrap'), offlineBanner:$('offlineBanner'), installBtn:$('installBtn'), installHint:$('installHint'),
+    noMailbox:$('noMailbox'), mailbox:$('mailbox'), inboxWrap:$('inboxWrap'), offlineBanner:$('offlineBanner'), installBtn:$('installBtn'), installHint:$('installHint'), settingsBtn:$('settingsBtn'), settingsModal:$('settingsModal'), closeSettingsBtn:$('closeSettingsBtn'),
     generateBtn:$('generateBtn'), emailAddress:$('emailAddress'),
     copyEmailBtn:$('copyEmailBtn'), mailCount:$('mailCount'), livePill:$('livePill'), providerBadge:$('providerBadge'),
-    refreshBtn:$('refreshBtn'), newBtn:$('newBtn'), waitBtn:$('waitBtn'), recentWrap:$('recentWrap'), recentList:$('recentList'), recentCount:$('recentCount'), recentSearch:$('recentSearch'), recentPrevBtn:$('recentPrevBtn'), recentNextBtn:$('recentNextBtn'), recentEmpty:$('recentEmpty'),
+    refreshBtn:$('refreshBtn'), newBtn:$('newBtn'), waitBtn:$('waitBtn'), recentWrap:$('recentWrap'), recentPanel:$('recentPanel'), recentToggleBtn:$('recentToggleBtn'), recentToggleIcon:$('recentToggleIcon'), recentList:$('recentList'), recentCount:$('recentCount'), recentSearch:$('recentSearch'), recentPrevBtn:$('recentPrevBtn'), recentNextBtn:$('recentNextBtn'), recentEmpty:$('recentEmpty'),
     emptyInbox:$('emptyInbox'), messageList:$('messageList'), lastUpdate:$('lastUpdate'),
     modal:$('modal'), closeModalBtn:$('closeModalBtn'),
     modalSubject:$('modalSubject'), modalMeta:$('modalMeta'), modalBody:$('modalBody'),
     otpBox:$('otpBox'), otpCode:$('otpCode'), copyOtpBtn:$('copyOtpBtn'),
-    links:$('links'), mailViewTitle:$('mailViewTitle'), mailFrameWrap:$('mailFrameWrap'), mailFrame:$('mailFrame'), domainSelect:$('domainSelect'), reloadDomainsBtn:$('reloadDomainsBtn'), domainNote:$('domainNote'), confirmModal:$('confirmModal'), confirmCancelBtn:$('confirmCancelBtn'), confirmOkBtn:$('confirmOkBtn'), confirmTitle:$('confirmTitle'), confirmText:$('confirmText'), providerSummary:$('providerSummary'), workerUrl:$('workerUrl'), saveWorkerUrlBtn:$('saveWorkerUrlBtn'), workerStatus:$('workerStatus'), dropmailToken:$('dropmailToken'), saveDropmailTokenBtn:$('saveDropmailTokenBtn'), toast:$('toast')
+    links:$('links'), mailViewTitle:$('mailViewTitle'), mailFrameWrap:$('mailFrameWrap'), mailFrame:$('mailFrame'), domainSelect:$('domainSelect'), reloadDomainsBtn:$('reloadDomainsBtn'), domainNote:$('domainNote'), managerSummary:$('managerSummary'), openSettingsInlineBtn:$('openSettingsInlineBtn'), confirmModal:$('confirmModal'), confirmCancelBtn:$('confirmCancelBtn'), confirmOkBtn:$('confirmOkBtn'), confirmTitle:$('confirmTitle'), confirmText:$('confirmText'), settingsProviderSummary:$('settingsProviderSummary'), workerUrl:$('workerUrl'), saveWorkerUrlBtn:$('saveWorkerUrlBtn'), workerStatus:$('workerStatus'), dropmailToken:$('dropmailToken'), saveDropmailTokenBtn:$('saveDropmailTokenBtn'), toast:$('toast')
   };
 
   function save(){
@@ -674,7 +771,7 @@
     const valid = recentFilteredItems();
 
     el.recentWrap.hidden = allValid.length === 0;
-    el.recentCount.textContent = allValid.length ? `${allValid.length}/10` : '';
+    el.recentCount.textContent = allValid.length ? `(${allValid.length})` : '(0)';
     el.recentEmpty.hidden = valid.length > 0 || allValid.length === 0;
 
     valid.forEach(item => {
@@ -848,12 +945,15 @@
     el.inboxWrap.hidden = !active;
     if (active){
       el.emailAddress.value = box.address;
-      el.providerBadge.textContent =
+      const providerName =
         box.provider === 'mailtm' ? 'Mail.tm' :
         box.provider === 'mailgw' ? 'Mail.gw' :
         box.provider === 'mailnesia' ? 'Mailnesia' :
         box.provider === 'guerrilla' ? 'Guerrilla' :
         box.provider === 'dropmail' ? 'DropMail' : 'Mail123';
+
+      el.providerBadge.textContent = providerName;
+      el.compactStatusProvider.textContent = `Activo · ${providerName}`;
     }
     renderHistory();
   }
@@ -1061,8 +1161,8 @@
     return pool.filter(item => domainPassesTld(item.domain));
   }
 
-  function renderProviderSummary(){
-    const items = [
+  function activeProviderItems(){
+    return [
       {label:'Mail123', count:(mail123Domains.length || MAIL123_FALLBACK_DOMAINS.length)},
       {label:'Mailnesia', count:mailnesiaDomains.length},
       {label:'Guerrilla', count:guerrillaDomains.length},
@@ -1070,14 +1170,21 @@
       {label:'Mail.gw', count:mailGwDomains.length},
       {label:'DropMail', count:dropMailDomains.length}
     ].filter(item => item.count > 0);
+  }
 
-    el.providerSummary.innerHTML = '';
+  function renderProviderSummary(){
+    const items = activeProviderItems();
+    const totalDomains = items.reduce((sum,item) => sum + item.count, 0);
 
+    el.managerSummary.innerHTML = `<b>${items.length}</b> gestores activos · <b>${totalDomains}</b> dominios`;
+    el.footerManagers.textContent = `Gestores conectados: ${items.length}`;
+
+    el.settingsProviderSummary.innerHTML = '';
     items.forEach(item => {
       const chip = document.createElement('span');
-      chip.className = 'provider-chip ok';
+      chip.className = 'settings-chip ok';
       chip.textContent = `${item.label} · ${item.count}`;
-      el.providerSummary.appendChild(chip);
+      el.settingsProviderSummary.appendChild(chip);
     });
   }
 
@@ -1876,6 +1983,17 @@
     el.messageList.innerHTML = '';
     el.emptyInbox.hidden = items.length > 0;
     el.mailCount.textContent = `${items.length} ${items.length===1?'correo':'correos'}`;
+    el.compactMailCount.textContent = `${items.length} ${items.length===1?'correo':'correos'}`;
+
+    const firstOtp = items.find(m => cleanOtp(m.__otp || m.otp_code || m.otp));
+    if (firstOtp){
+      const code = cleanOtp(firstOtp.__otp || firstOtp.otp_code || firstOtp.otp);
+      el.topOtpCode.textContent = code;
+      el.topOtpBanner.classList.add('show');
+    }else{
+      el.topOtpCode.textContent = '';
+      el.topOtpBanner.classList.remove('show');
+    }
 
     items.forEach(m => {
       const id = messageIdOf(m);
@@ -2638,6 +2756,33 @@
   window.addEventListener('offline', updateOnlineState);
   el.installBtn.addEventListener('click', installApp);
 
+
+  function openSettings(){
+    el.settingsModal.classList.add('show');
+  }
+
+  function closeSettings(){
+    el.settingsModal.classList.remove('show');
+  }
+
+  el.settingsBtn.addEventListener('click', openSettings);
+  el.openSettingsInlineBtn.addEventListener('click', openSettings);
+  el.closeSettingsBtn.addEventListener('click', closeSettings);
+  el.settingsModal.addEventListener('click', e => {
+    if (e.target === el.settingsModal) closeSettings();
+  });
+
+  el.recentToggleBtn.addEventListener('click', () => {
+    const open = !el.recentPanel.classList.contains('show');
+    el.recentPanel.classList.toggle('show', open);
+    el.recentToggleIcon.textContent = open ? 'Ocultar ▴' : 'Ver ▾';
+    if (open) requestAnimationFrame(updateRecentNavState);
+  });
+
+  el.copyTopOtpBtn.addEventListener('click', () => {
+    const code = String(el.topOtpCode.textContent || '').trim();
+    if (code) copyText(code);
+  });
 
   el.workerUrl.value = getWorkerUrl();
 

@@ -1,4 +1,4 @@
-# Correo Temporal Mini v18 — PWA
+# Correo Temporal Mini v19 — PWA
 
 Esta versión está preparada para usarse e instalarse tanto en PC como en celular.
 
@@ -158,3 +158,14 @@ La URL se guarda solamente en el navegador.
 - DropMail queda cerrado por defecto.
 - Acciones y estado del correo tienen menos margen vertical.
 - La bandeja de entrada aparece bastante más arriba en PC y celular.
+
+
+## Cambio v19 — interfaz enfocada en bandeja
+- Cloudflare Worker y DropMail se movieron a **⚙️ Configuración**.
+- La pantalla principal solo muestra un resumen de gestores activos y dominios.
+- **Correos recientes** ahora es una sección plegable.
+- La bandeja vacía se redujo a una franja compacta.
+- Estado del correo resumido en una sola línea: proveedor, revisión en vivo y cantidad.
+- Cuando se detecta un OTP, aparece arriba del correo en una banda destacada con botón **Copiar código**.
+- Pie de página simplificado con cantidad de gestores conectados.
+- La bandeja aparece bastante más arriba sin perder funciones.
