@@ -1,4 +1,4 @@
-# Correo Temporal Mini v23 — PWA
+# Correo Temporal Mini v25 — PWA
 
 Esta versión está preparada para usarse e instalarse tanto en PC como en celular.
 
@@ -223,3 +223,31 @@ La URL se guarda solamente en el navegador.
 Esta versión requiere actualizar dos partes:
 1. GitHub Pages: `index.html`, `sw.js`, `README.md`.
 2. Cloudflare Worker: reemplazar su código por `cloudflare-worker/worker.js`.
+
+
+## Cambio v24 — Automático realmente variado
+- El modo **Automático** ya no prioriza siempre `.shop`.
+- Primero elige aleatoriamente entre los gestores activos para evitar que un proveedor con muchos dominios domine el resultado.
+- Si hay varios gestores disponibles, procura no repetir el mismo gestor dos veces seguidas.
+- Dentro del gestor elegido, procura no repetir el mismo dominio consecutivamente.
+- Guarda localmente el último gestor y dominio usados por Automático.
+- Si seleccionas un filtro como `.shop`, `.net` o `.site`, Automático respeta ese filtro pero sigue variando dentro de las opciones disponibles.
+- Los filtros manuales siguen funcionando igual.
+- Versión visible en Configuración: **v24**.
+
+
+## Cambio v25 — TempMail.lol como gestor principal
+- Integra **TempMail.lol** mediante su API oficial v3.
+- No requiere API key en el nivel gratuito.
+- Usa `POST /v3/inboxes` para crear buzones.
+- Usa `/v3/inboxes/:token/wait` para esperar nuevos mensajes.
+- Guarda localmente los mensajes ya recibidos porque TempMail.lol consume los emails cuando los devuelve.
+- TempMail.lol aparece en Automático como proveedor con dominio aleatorio.
+- Guerrilla Mail sale del selector normal y del modo Automático por inestabilidad.
+- Mailnesia se conserva para `.shop` y `.site`.
+- Mail123 sigue siendo el proveedor base con mayor duración.
+- El Worker pasa a **Correo Temporal API v18**.
+- Frontend visible como **v25**.
+
+### Nota sobre Generator.email
+Generator.email es útil como servicio manual y ofrece muchos dominios, pero no publica una API oficial documentada. No se integra mediante scraping para evitar una dependencia frágil.
