@@ -1,4 +1,4 @@
-const CACHE = 'correo-temporal-v19';
+const CACHE = 'correo-temporal-v21';
 const APP_SHELL = [
   './',
   './index.html',
@@ -13,6 +13,10 @@ self.addEventListener('install', event => {
     caches.open(CACHE).then(cache => cache.addAll(APP_SHELL))
   );
   self.skipWaiting();
+});
+
+self.addEventListener('message', event => {
+  if (event.data?.type === 'SKIP_WAITING') self.skipWaiting();
 });
 
 self.addEventListener('activate', event => {
@@ -37,7 +41,7 @@ self.addEventListener('fetch', event => {
 
   if (req.mode === 'navigate') {
     event.respondWith(
-      fetch(req)
+      fetch(req, {cache:'no-store'})
         .then(res => {
           const copy = res.clone();
           caches.open(CACHE).then(cache => cache.put('./index.html', copy));
@@ -50,14 +54,17 @@ self.addEventListener('fetch', event => {
 
   event.respondWith(
     caches.match(req).then(cached => {
-      if (cached) return cached;
-      return fetch(req).then(res => {
-        const copy = res.clone();
-        if (url.origin === self.location.origin) {
-          caches.open(CACHE).then(cache => cache.put(req, copy));
-        }
-        return res;
-      });
+      const network = fetch(req, {cache:'no-store'})
+        .then(res => {
+          const copy = res.clone();
+          if (url.origin === self.location.origin) {
+            caches.open(CACHE).then(cache => cache.put(req, copy));
+          }
+          return res;
+        })
+        .catch(() => cached);
+
+      return cached || network;
     })
   );
 });

@@ -546,6 +546,7 @@
       <div>
         <div class="eyebrow">Configuración</div>
         <h3 id="settingsTitle">Gestores de correo</h3>
+        <div class="standalone-note">Versión <b id="appVersionLabel">v21</b></div>
       </div>
       <button id="closeSettingsBtn" class="icon-btn" type="button">✕</button>
     </div>
@@ -605,6 +606,7 @@
   const DROPMAIL_API = 'https://dropmail.me/api/graphql';
   const DROPMAIL_TOKEN_KEY = 'correo_temporal_dropmail_token_v1';
   const WORKER_URL_KEY = 'correo_temporal_worker_url_v1';
+  const APP_VERSION = '21.0';
   const STORAGE_KEY = 'correo_temporal_mail123_v2';
   const HISTORY_KEY = 'correo_temporal_history_v2';
   const LEGACY_HISTORY_KEY = 'correo_temporal_history_v1';
@@ -638,7 +640,7 @@
 
   const $ = id => document.getElementById(id);
   const el = {
-    noMailbox:$('noMailbox'), mailbox:$('mailbox'), inboxWrap:$('inboxWrap'), offlineBanner:$('offlineBanner'), installBtn:$('installBtn'), installHint:$('installHint'), settingsBtn:$('settingsBtn'), settingsModal:$('settingsModal'), closeSettingsBtn:$('closeSettingsBtn'),
+    noMailbox:$('noMailbox'), mailbox:$('mailbox'), inboxWrap:$('inboxWrap'), offlineBanner:$('offlineBanner'), installBtn:$('installBtn'), installHint:$('installHint'), settingsBtn:$('settingsBtn'), settingsModal:$('settingsModal'), closeSettingsBtn:$('closeSettingsBtn'), appVersionLabel:$('appVersionLabel'),
     generateBtn:$('generateBtn'), emailAddress:$('emailAddress'),
     copyEmailBtn:$('copyEmailBtn'), mailCount:$('mailCount'), livePill:$('livePill'), providerBadge:$('providerBadge'),
     refreshBtn:$('refreshBtn'), newBtn:$('newBtn'), waitBtn:$('waitBtn'), recentWrap:$('recentWrap'), recentPanel:$('recentPanel'), recentToggleBtn:$('recentToggleBtn'), recentToggleIcon:$('recentToggleIcon'), recentList:$('recentList'), recentCount:$('recentCount'), recentSearch:$('recentSearch'), recentPrevBtn:$('recentPrevBtn'), recentNextBtn:$('recentNextBtn'), recentEmpty:$('recentEmpty'),
@@ -646,7 +648,7 @@
     modal:$('modal'), closeModalBtn:$('closeModalBtn'),
     modalSubject:$('modalSubject'), modalMeta:$('modalMeta'), modalBody:$('modalBody'),
     otpBox:$('otpBox'), otpCode:$('otpCode'), copyOtpBtn:$('copyOtpBtn'),
-    links:$('links'), mailViewTitle:$('mailViewTitle'), mailFrameWrap:$('mailFrameWrap'), mailFrame:$('mailFrame'), domainSelect:$('domainSelect'), reloadDomainsBtn:$('reloadDomainsBtn'), domainNote:$('domainNote'), managerSummary:$('managerSummary'), openSettingsInlineBtn:$('openSettingsInlineBtn'), confirmModal:$('confirmModal'), confirmCancelBtn:$('confirmCancelBtn'), confirmOkBtn:$('confirmOkBtn'), confirmTitle:$('confirmTitle'), confirmText:$('confirmText'), settingsProviderSummary:$('settingsProviderSummary'), workerUrl:$('workerUrl'), saveWorkerUrlBtn:$('saveWorkerUrlBtn'), workerStatus:$('workerStatus'), dropmailToken:$('dropmailToken'), saveDropmailTokenBtn:$('saveDropmailTokenBtn'), toast:$('toast')
+    links:$('links'), mailViewTitle:$('mailViewTitle'), mailFrameWrap:$('mailFrameWrap'), mailFrame:$('mailFrame'), domainSelect:$('domainSelect'), reloadDomainsBtn:$('reloadDomainsBtn'), domainNote:$('domainNote'), managerSummary:$('managerSummary'), openSettingsInlineBtn:$('openSettingsInlineBtn'), confirmModal:$('confirmModal'), confirmCancelBtn:$('confirmCancelBtn'), confirmOkBtn:$('confirmOkBtn'), confirmTitle:$('confirmTitle'), confirmText:$('confirmText'), settingsProviderSummary:$('settingsProviderSummary'), workerUrl:$('workerUrl'), saveWorkerUrlBtn:$('saveWorkerUrlBtn'), workerStatus:$('workerStatus'), dropmailToken:$('dropmailToken'), saveDropmailTokenBtn:$('saveDropmailTokenBtn'), compactStatusProvider:$('compactStatusProvider'), compactMailCount:$('compactMailCount'), topOtpBanner:$('topOtpBanner'), topOtpCode:$('topOtpCode'), copyTopOtpBtn:$('copyTopOtpBtn'), footerManagers:$('footerManagers'), toast:$('toast')
   };
 
   function save(){
@@ -890,6 +892,8 @@
   }
 
   function busy(button, on, label='Cargando'){
+    if (!button) return;
+
     if (on){
       button.dataset.old = button.innerHTML;
       button.disabled = true;
@@ -907,31 +911,62 @@
     };
     if (options.body && !headers['Content-Type']) headers['Content-Type'] = 'application/json';
 
-    const res = await fetch(url, {
-      cache:'no-store',
-      ...options,
-      headers
-    });
+    const controller = new AbortController();
+    const externalSignal = options.signal;
+    const timeoutMs = Number(options.timeoutMs || 8000);
 
-    if (res.status === 204) return null;
-
-    let data = null;
-    try{ data = await res.json(); }catch{}
-
-    if (!res.ok){
-      const detail =
-        data?.['hydra:description'] ||
-        data?.detail ||
-        data?.error ||
-        data?.message ||
-        `HTTP ${res.status}`;
-      const err = new Error(detail);
-      err.status = res.status;
-      throw err;
+    let timeout = null;
+    if (timeoutMs > 0){
+      timeout = setTimeout(() => controller.abort(), timeoutMs);
     }
 
-    if (data && data.success === false) throw new Error(data.error || 'La API devolvió un error');
-    return data;
+    if (externalSignal){
+      if (externalSignal.aborted) controller.abort();
+      else externalSignal.addEventListener('abort', () => controller.abort(), {once:true});
+    }
+
+    try{
+      const fetchOptions = {...options};
+      delete fetchOptions.timeoutMs;
+
+      const res = await fetch(url, {
+        cache:'no-store',
+        ...fetchOptions,
+        headers,
+        signal:controller.signal
+      });
+
+      if (res.status === 204) return null;
+
+      let data = null;
+      try{ data = await res.json(); }catch{}
+
+      if (!res.ok){
+        const detail =
+          data?.['hydra:description'] ||
+          data?.detail ||
+          data?.error ||
+          data?.message ||
+          `HTTP ${res.status}`;
+
+        const err = new Error(detail);
+        err.status = res.status;
+        throw err;
+      }
+
+      if (data && data.success === false){
+        throw new Error(data.error || 'La API devolvió un error');
+      }
+
+      return data;
+    }catch(err){
+      if (err?.name === 'AbortError'){
+        throw new Error('Tiempo de espera agotado');
+      }
+      throw err;
+    }finally{
+      if (timeout) clearTimeout(timeout);
+    }
   }
 
   async function getJSON(url){
@@ -1344,51 +1379,64 @@
     busy(el.reloadDomainsBtn, true, 'Cargando');
     el.domainNote.textContent = 'Consultando dominios de los gestores…';
 
-    const dropToken = getDropmailToken();
+    try{
+      const dropToken = getDropmailToken();
+      const workerBase = getWorkerUrl();
 
-    const workerBase = getWorkerUrl();
+      const requests = [
+        requestJSON(`${MAIL123_API}/domains`, {timeoutMs:6000}),
+        requestJSON(`${MAILTM_API}/domains?page=1`, {timeoutMs:6000}),
+        requestJSON(`${MAILGW_API}/domains?page=1`, {timeoutMs:6000}),
+        workerBase ? workerJSON('/domains') : Promise.resolve(null),
+        dropToken
+          ? dropMailGraphQL('query { domains { id name availableVia expiresAt } }')
+          : Promise.resolve(null)
+      ];
 
-    const requests = [
-      requestJSON(`${MAIL123_API}/domains`),
-      requestJSON(`${MAILTM_API}/domains?page=1`),
-      requestJSON(`${MAILGW_API}/domains?page=1`),
-      workerBase ? workerJSON('/domains') : Promise.resolve(null),
-      dropToken
-        ? dropMailGraphQL('query { domains { id name availableVia expiresAt } }')
-        : Promise.resolve(null)
-    ];
+      const [r123, rtm, rgw, rworker, rdrop] = await Promise.allSettled(requests);
 
-    const [r123, rtm, rgw, rworker, rdrop] = await Promise.allSettled(requests);
+      mail123Domains = r123.status === 'fulfilled'
+        ? normalizeMail123Domains(r123.value)
+        : [...MAIL123_FALLBACK_DOMAINS];
 
-    mail123Domains = r123.status === 'fulfilled'
-      ? normalizeMail123Domains(r123.value)
-      : [...MAIL123_FALLBACK_DOMAINS];
+      mailTmDomains = rtm.status === 'fulfilled'
+        ? normalizeAccountDomains(rtm.value)
+        : [];
 
-    mailTmDomains = rtm.status === 'fulfilled'
-      ? normalizeAccountDomains(rtm.value)
-      : [];
+      mailGwDomains = rgw.status === 'fulfilled'
+        ? normalizeAccountDomains(rgw.value)
+        : [];
 
-    mailGwDomains = rgw.status === 'fulfilled'
-      ? normalizeAccountDomains(rgw.value)
-      : [];
+      const workerData = (rworker.status === 'fulfilled' && rworker.value) ? rworker.value : null;
+      mailnesiaDomains = Array.isArray(workerData?.mailnesia) ? workerData.mailnesia : [];
+      guerrillaDomains = Array.isArray(workerData?.guerrilla) ? workerData.guerrilla : [];
 
-    const workerData = (rworker.status === 'fulfilled' && rworker.value) ? rworker.value : null;
-    mailnesiaDomains = Array.isArray(workerData?.mailnesia) ? workerData.mailnesia : [];
-    guerrillaDomains = Array.isArray(workerData?.guerrilla) ? workerData.guerrilla : [];
+      dropMailDomains = (rdrop.status === 'fulfilled' && rdrop.value)
+        ? normalizeDropMailDomains(rdrop.value)
+        : [];
 
-    dropMailDomains = (rdrop.status === 'fulfilled' && rdrop.value)
-      ? normalizeDropMailDomains(rdrop.value)
-      : [];
+      domainsLoaded = true;
+      populateDomainSelect();
 
-    domainsLoaded = true;
-    populateDomainSelect();
-    busy(el.reloadDomainsBtn, false);
+      if (force){
+        const total = (mail123Domains.length || MAIL123_FALLBACK_DOMAINS.length)
+          + mailTmDomains.length + mailGwDomains.length
+          + mailnesiaDomains.length + guerrillaDomains.length + dropMailDomains.length;
 
-    if (force){
-      const total = (mail123Domains.length || MAIL123_FALLBACK_DOMAINS.length)
-        + mailTmDomains.length + mailGwDomains.length
-        + mailnesiaDomains.length + guerrillaDomains.length + dropMailDomains.length;
-      toast(`Dominios disponibles: ${total}`);
+        toast(`Dominios disponibles: ${total}`);
+      }
+    }catch(err){
+      console.warn('Error general cargando dominios', err);
+
+      // Mail123 siempre queda utilizable mediante fallback.
+      mail123Domains = [...MAIL123_FALLBACK_DOMAINS];
+      domainsLoaded = true;
+      populateDomainSelect();
+
+      el.domainNote.textContent =
+        'Algunos gestores no respondieron. Puedes seguir usando Mail123 y volver a intentar Dominios.';
+    }finally{
+      busy(el.reloadDomainsBtn, false);
     }
   }
 
@@ -1498,9 +1546,13 @@
   }
 
   async function buildShortMailbox(){
-    await loadDomains();
-
     let selection = el.domainSelect.value || 'mail123:mail123.fr';
+
+    // Solo "Automático" necesita esperar a tener el pool completo.
+    // Un dominio ya seleccionado debe poder generarse inmediatamente.
+    if (selection === 'auto' && !domainsLoaded){
+      await loadDomains();
+    }
 
     if (selection === 'auto'){
       const pool = availableDomainPool();
@@ -1788,12 +1840,62 @@
     }
 
     try{
-      const reg = await navigator.serviceWorker.register('./sw.js', {scope:'./'});
-      console.log('Service Worker registrado', reg.scope);
+      // Cambiar la URL del script por versión obliga al navegador a comprobar el Worker nuevo.
+      const reg = await navigator.serviceWorker.register(`./sw.js?v=${encodeURIComponent(APP_VERSION)}`, {
+        scope:'./',
+        updateViaCache:'none'
+      });
+
+      // Pide explícitamente una comprobación de actualización.
+      try{ await reg.update(); }catch{}
+
+      const maybeReloadForUpdate = worker => {
+        if (!worker) return;
+
+        worker.addEventListener('statechange', () => {
+          if (worker.state !== 'activated') return;
+
+          const key = `correo_temp_sw_reloaded_${APP_VERSION}`;
+          if (!sessionStorage.getItem(key)){
+            sessionStorage.setItem(key, '1');
+            location.reload();
+          }
+        });
+      };
+
+      if (reg.installing) maybeReloadForUpdate(reg.installing);
+
+      reg.addEventListener('updatefound', () => {
+        maybeReloadForUpdate(reg.installing);
+      });
+
+      // Si ya existe un Worker esperando, actívalo inmediatamente.
+      if (reg.waiting){
+        reg.waiting.postMessage({type:'SKIP_WAITING'});
+      }
+
+      console.log(`Service Worker v${APP_VERSION} registrado`, reg.scope);
     }catch(err){
       console.warn('No se pudo registrar Service Worker', err);
     }
   }
+
+  async function clearLegacyCaches(){
+    if (!('caches' in window)) return;
+
+    try{
+      const keys = await caches.keys();
+      await Promise.all(
+        keys
+          .filter(key => key.startsWith('correo-temporal-') && key !== 'correo-temporal-v20')
+          .map(key => caches.delete(key))
+      );
+    }catch(err){
+      console.warn('No pude limpiar caches anteriores', err);
+    }
+  }
+
+
 
   async function generate(){
     busy(el.generateBtn, true, 'Generando');
@@ -2739,6 +2841,11 @@
   }
 
 
+  // Conecta primero la acción esencial para que fallos opcionales
+  // nunca dejen inutilizable "Generar correo temporal".
+  if (el.generateBtn){
+    }
+
   window.addEventListener('beforeinstallprompt', e => {
     e.preventDefault();
     deferredInstallPrompt = e;
@@ -2884,7 +2991,11 @@
 
   updateOnlineState();
   renderInstallState();
-  registerServiceWorker();
+  el.appVersionLabel.textContent = `v${APP_VERSION}`;
+
+  clearLegacyCaches()
+    .finally(() => registerServiceWorker());
+
   loadDomains();
 
   load();

@@ -1,4 +1,4 @@
-# Correo Temporal Mini v19 — PWA
+# Correo Temporal Mini v21 — PWA
 
 Esta versión está preparada para usarse e instalarse tanto en PC como en celular.
 
@@ -169,3 +169,23 @@ La URL se guarda solamente en el navegador.
 - Cuando se detecta un OTP, aparece arriba del correo en una banda destacada con botón **Copiar código**.
 - Pie de página simplificado con cantidad de gestores conectados.
 - La bandeja aparece bastante más arriba sin perder funciones.
+
+
+## Cambio v20 — actualización forzada
+- Corrige el problema donde la PWA instalada podía seguir mostrando v18/v19 desde caché.
+- `sw.js` se registra con versión y `updateViaCache: none`.
+- Se ejecuta `registration.update()` al abrir la app.
+- Se eliminan automáticamente caches antiguas `correo-temporal-v*`.
+- La navegación principal usa `fetch(..., {cache: "no-store"})`.
+- Cuando se activa un Worker nuevo, la app recarga una sola vez.
+- En **⚙️ Configuración** se muestra `Versión v20` para verificar que la actualización llegó.
+
+
+## Cambio v21 — corrección crítica de generación
+- Corrige referencias DOM faltantes del nuevo banner OTP.
+- Ese error detenía el JavaScript antes de conectar el botón **Generar correo temporal**.
+- Los proveedores externos ahora tienen timeout para evitar que uno con problemas congele la carga de dominios.
+- `@mail123.fr` y cualquier dominio explícitamente seleccionado pueden generar el correo sin esperar a que terminen de cargar todos los gestores.
+- Mail123 conserva un fallback local de dominios si las APIs externas fallan.
+- El botón Generar se conecta antes que las funciones opcionales de configuración.
+- Versión visible en ⚙️ Configuración: **v21**.
