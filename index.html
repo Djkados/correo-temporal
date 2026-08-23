@@ -546,7 +546,7 @@
       <div>
         <div class="eyebrow">Configuración</div>
         <h3 id="settingsTitle">Gestores de correo</h3>
-        <div class="standalone-note">Versión <b id="appVersionLabel">v21</b></div>
+        <div class="standalone-note">Versión <b id="appVersionLabel">v23</b></div>
       </div>
       <button id="closeSettingsBtn" class="icon-btn" type="button">✕</button>
     </div>
@@ -606,7 +606,8 @@
   const DROPMAIL_API = 'https://dropmail.me/api/graphql';
   const DROPMAIL_TOKEN_KEY = 'correo_temporal_dropmail_token_v1';
   const WORKER_URL_KEY = 'correo_temporal_worker_url_v1';
-  const APP_VERSION = '21.0';
+  const DEFAULT_WORKER_URL = 'https://correo-temp-api.djkados11.workers.dev';
+  const APP_VERSION = '23.0';
   const STORAGE_KEY = 'correo_temporal_mail123_v2';
   const HISTORY_KEY = 'correo_temporal_history_v2';
   const LEGACY_HISTORY_KEY = 'correo_temporal_history_v1';
@@ -631,8 +632,14 @@
   let mail123Domains = [];
   let mailTmDomains = [];
   let mailGwDomains = [];
-  let mailnesiaDomains = [];
-  let guerrillaDomains = [];
+  let mailnesiaDomains = [
+    'mailnesia.com','airmailed.shop','bulkfinder.site','emaill.mom','mailed.click','poofmail.fit'
+  ];
+  let guerrillaDomains = [
+    'sharklasers.com','guerrillamail.info','grr.la','guerrillamail.biz','guerrillamail.com',
+    'guerrillamail.de','guerrillamail.net','guerrillamail.org','guerrillamailblock.com',
+    'pokemail.net','spam4.me'
+  ];
   let dropMailDomains = [];
   let dropMailMessageCache = new Map();
   let domainsLoaded = false;
@@ -1017,6 +1024,29 @@
     'mailtemp.fr','mail123.beer','mail123box.tech','mail123.pro','mail123.site'
   ];
 
+  const MAILNESIA_FALLBACK_DOMAINS = [
+    'mailnesia.com',
+    'airmailed.shop',
+    'bulkfinder.site',
+    'emaill.mom',
+    'mailed.click',
+    'poofmail.fit'
+  ];
+
+  const GUERRILLA_FALLBACK_DOMAINS = [
+    'sharklasers.com',
+    'guerrillamail.info',
+    'grr.la',
+    'guerrillamail.biz',
+    'guerrillamail.com',
+    'guerrillamail.de',
+    'guerrillamail.net',
+    'guerrillamail.org',
+    'guerrillamailblock.com',
+    'pokemail.net',
+    'spam4.me'
+  ];
+
   function normalizeMail123Domains(data){
     const raw = Array.isArray(data) ? data :
       (data?.domains || data?.items || data?.data || data?.['hydra:member'] || []);
@@ -1055,12 +1085,13 @@
   }
 
   function getWorkerUrl(){
-    return String(localStorage.getItem(WORKER_URL_KEY) || '').trim().replace(/\/+$/,'');
+    const saved = String(localStorage.getItem(WORKER_URL_KEY) || '').trim().replace(/\/+$/,'');
+    return saved || DEFAULT_WORKER_URL;
   }
 
   function setWorkerUrl(url){
     const value = String(url || '').trim().replace(/\/+$/,'');
-    if (value) localStorage.setItem(WORKER_URL_KEY, value);
+    if (value && value !== DEFAULT_WORKER_URL) localStorage.setItem(WORKER_URL_KEY, value);
     else localStorage.removeItem(WORKER_URL_KEY);
   }
 
@@ -1074,15 +1105,24 @@
   async function checkWorker(){
     const base = getWorkerUrl();
     if (!base){
-      el.workerStatus.textContent = 'Sin conectar. Pega la URL del Worker.';
-      el.workerStatus.className = 'worker-status';
+      el.workerStatus.textContent = 'Sin conexión al Worker.';
+      el.workerStatus.className = 'worker-status bad';
       return false;
     }
 
     try{
       const data = await requestJSON(`${base}/health`);
-      el.workerStatus.textContent = `Conectado · ${data?.service || 'Correo Temp API'}`;
-      el.workerStatus.className = 'worker-status ok';
+      const service = data?.service || 'Correo Temp API';
+      const guerrillaSessionFix = data?.capabilities?.guerrillaCookieSession === true;
+
+      el.workerStatus.textContent = guerrillaSessionFix
+        ? `Conectado · ${service}`
+        : `Conectado · ${service} · actualiza Worker para Guerrilla`;
+
+      el.workerStatus.className = guerrillaSessionFix
+        ? 'worker-status ok'
+        : 'worker-status bad';
+
       return true;
     }catch(err){
       el.workerStatus.textContent = `No conecta: ${err?.message || 'error'}`;
@@ -1408,8 +1448,16 @@
         : [];
 
       const workerData = (rworker.status === 'fulfilled' && rworker.value) ? rworker.value : null;
-      mailnesiaDomains = Array.isArray(workerData?.mailnesia) ? workerData.mailnesia : [];
-      guerrillaDomains = Array.isArray(workerData?.guerrilla) ? workerData.guerrilla : [];
+
+      mailnesiaDomains =
+        Array.isArray(workerData?.mailnesia) && workerData.mailnesia.length
+          ? workerData.mailnesia
+          : [...MAILNESIA_FALLBACK_DOMAINS];
+
+      guerrillaDomains =
+        Array.isArray(workerData?.guerrilla) && workerData.guerrilla.length
+          ? workerData.guerrilla
+          : [...GUERRILLA_FALLBACK_DOMAINS];
 
       dropMailDomains = (rdrop.status === 'fulfilled' && rdrop.value)
         ? normalizeDropMailDomains(rdrop.value)
@@ -1428,13 +1476,16 @@
     }catch(err){
       console.warn('Error general cargando dominios', err);
 
-      // Mail123 siempre queda utilizable mediante fallback.
+      // Los gestores principales conservan un pool de respaldo.
       mail123Domains = [...MAIL123_FALLBACK_DOMAINS];
+      mailnesiaDomains = [...MAILNESIA_FALLBACK_DOMAINS];
+      guerrillaDomains = [...GUERRILLA_FALLBACK_DOMAINS];
+
       domainsLoaded = true;
       populateDomainSelect();
 
       el.domainNote.textContent =
-        'Algunos gestores no respondieron. Puedes seguir usando Mail123 y volver a intentar Dominios.';
+        'Algunos gestores tardaron en responder. Dejé disponibles los dominios de respaldo y puedes pulsar Dominios para actualizar.';
     }finally{
       busy(el.reloadDomainsBtn, false);
     }
@@ -1908,7 +1959,17 @@
       toast('Correo generado');
     }catch(err){
       console.error(err);
-      alert('No pude generar el correo.\n\n' + err.message);
+
+      let message = err?.message || 'Ocurrió un error al generar el correo.';
+      if (/Guerrilla/i.test(message)){
+        message = 'Guerrilla Mail no pudo crear la bandeja. Verifica que el Cloudflare Worker esté actualizado a API v17 y vuelve a intentar.';
+      }
+
+      await pageAlert({
+        title:'No pude generar el correo',
+        text:message,
+        confirmLabel:'Aceptar'
+      });
     }finally{
       busy(el.generateBtn, false);
     }
@@ -2693,6 +2754,33 @@
   }
 
 
+  function pageAlert({
+    title='Aviso',
+    text='',
+    confirmLabel='Aceptar'
+  } = {}){
+    return new Promise(resolve => {
+      el.confirmTitle.textContent = title;
+      el.confirmText.textContent = text;
+      el.confirmOkBtn.textContent = confirmLabel;
+      el.confirmCancelBtn.hidden = true;
+      el.confirmModal.classList.add('show');
+
+      const cleanup = () => {
+        el.confirmModal.classList.remove('show');
+        el.confirmCancelBtn.hidden = false;
+        el.confirmOkBtn.onclick = null;
+        el.confirmModal.onclick = null;
+        resolve();
+      };
+
+      el.confirmOkBtn.onclick = cleanup;
+      el.confirmModal.onclick = e => {
+        if (e.target === el.confirmModal) cleanup();
+      };
+    });
+  }
+
   function pageConfirm({
     title='¿Continuar?',
     text='Esta acción hará cambios en la página.',
@@ -2700,6 +2788,7 @@
     cancelLabel='Cancelar'
   } = {}){
     return new Promise(resolve => {
+      el.confirmCancelBtn.hidden = false;
       el.confirmTitle.textContent = title;
       el.confirmText.textContent = text;
       el.confirmOkBtn.textContent = confirmLabel;
@@ -2892,6 +2981,9 @@
   });
 
   el.workerUrl.value = getWorkerUrl();
+
+  // Su Worker queda conectado automáticamente.
+  checkWorker();
 
   el.saveWorkerUrlBtn.addEventListener('click', async () => {
     const value = String(el.workerUrl.value || '').trim().replace(/\/+$/,'');

@@ -1,4 +1,4 @@
-# Correo Temporal Mini v21 — PWA
+# Correo Temporal Mini v23 — PWA
 
 Esta versión está preparada para usarse e instalarse tanto en PC como en celular.
 
@@ -189,3 +189,37 @@ La URL se guarda solamente en el navegador.
 - Mail123 conserva un fallback local de dominios si las APIs externas fallan.
 - El botón Generar se conecta antes que las funciones opcionales de configuración.
 - Versión visible en ⚙️ Configuración: **v21**.
+
+
+## Cambio v22 — Mailnesia/Guerrilla siempre disponibles
+- El Cloudflare Worker del proyecto queda configurado por defecto:
+  `https://correo-temp-api.djkados11.workers.dev`
+- Ya no depende de que la URL sobreviva en `localStorage`.
+- Mailnesia conserva fallback de 6 dominios.
+- Guerrilla Mail conserva fallback de 11 dominios.
+- `.shop`, `.site` y `.net` permanecen seleccionables aunque la consulta `/domains` tarde o falle temporalmente.
+- `airmailed.shop` vuelve a estar disponible en el filtro `.shop`.
+- Si el Worker responde, la app actualiza los dominios con la lista en vivo.
+- Versión visible en Configuración: **v22**.
+
+
+## Cambio v23 — corrección Guerrilla Mail
+- Se corrigió `Guerrilla HTTP 400`.
+- La API oficial de Guerrilla requiere:
+  - `ip`
+  - `agent`
+  - sesión mediante cookie `PHPSESSID`
+- El Worker ahora guarda y reutiliza `PHPSESSID` entre:
+  - `get_email_address`
+  - `set_email_user`
+  - `get_email_list`
+  - `fetch_email`
+- El Worker pasa a **Correo Temporal API v17**.
+- `/health` informa la capacidad `guerrillaCookieSession:true`.
+- Los errores al generar ya no usan `alert()` del navegador; aparecen en un modal propio de la app.
+- Frontend visible como **v23**.
+
+### Importante
+Esta versión requiere actualizar dos partes:
+1. GitHub Pages: `index.html`, `sw.js`, `README.md`.
+2. Cloudflare Worker: reemplazar su código por `cloudflare-worker/worker.js`.
