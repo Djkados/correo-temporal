@@ -203,6 +203,25 @@
     }
     .offline-banner.show{display:block}
     .standalone-note{font-size:11px;color:var(--muted);margin-top:6px}
+    .domain-card{margin-bottom:14px;padding:14px 16px}
+    .domain-grid{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:10px;align-items:end}
+    .domain-label{display:block;margin-bottom:7px;font-size:11px;text-transform:uppercase;letter-spacing:.1em;color:var(--muted);font-weight:800}
+    .domain-select{
+      width:100%;min-height:46px;border:1px solid var(--line);border-radius:13px;background:#101a30;
+      color:var(--text);padding:0 12px;font-weight:760;outline:none
+    }
+    .domain-select:focus{border-color:#4b79b9}
+    .domain-note{margin-top:8px;color:var(--muted);font-size:11px;line-height:1.45}
+    .domain-refresh{min-width:118px}
+    .provider-badge{
+      display:inline-flex;align-items:center;gap:5px;margin-left:6px;padding:3px 7px;border-radius:999px;
+      border:1px solid var(--line);background:#101a30;color:var(--muted);font-size:10px;font-weight:800;vertical-align:middle
+    }
+    @media(max-width:639px){
+      .domain-grid{grid-template-columns:1fr}
+      .domain-refresh{width:100%}
+    }
+
   </style>
 </head>
 <body>
@@ -221,10 +240,24 @@
   </header>
   <div id="installHint" class="install-hint"></div>
 
+  <section class="card domain-card">
+    <div class="domain-grid">
+      <div>
+        <label class="domain-label" for="domainSelect">Dominio para el próximo correo</label>
+        <select id="domainSelect" class="domain-select">
+          <option value="mail123:mail123.fr">@mail123.fr ⭐ Recomendado</option>
+          <option value="auto">Automático</option>
+        </select>
+      </div>
+      <button id="reloadDomainsBtn" class="btn ghost domain-refresh" type="button">↻ Dominios</button>
+    </div>
+    <div id="domainNote" class="domain-note">Cargando dominios disponibles…</div>
+  </section>
+
   <section id="noMailbox" class="card generate">
     <div class="hero">📨</div>
     <h2>Genera tu correo</h2>
-    <p>Genera una dirección corta como templo15 o lucrecia29, con un dominio disponible al azar.</p>
+    <p>Elige el dominio que prefieras y genera una dirección corta como templo15 o lucrecia29.</p>
     <button id="generateBtn" class="btn primary">Generar correo temporal</button>
   </section>
 
@@ -237,7 +270,7 @@
     <div class="email-help">Puedes editar esta dirección y tocar <b>Actualizar</b> para abrir otra bandeja temporal.</div>
 
     <div class="statusline">
-      <div class="pill ok"><b>Activo</b></div>
+      <div class="pill ok"><b>Activo</b><span id="providerBadge" class="provider-badge">Mail123</span></div>
       <div class="pill">⏳ <b>Hasta 7 días</b></div>
       <div class="pill">📥 <b id="mailCount">0 correos</b></div>
       <div id="livePill" class="pill ok"><b>En vivo · 7 s</b></div>
@@ -275,7 +308,8 @@
 
   <p class="footer">
     Servicio de correo temporal mediante
-    <a href="https://mail123.click" target="_blank" rel="noopener noreferrer">Mail123</a>.
+    <a href="https://mail123.fr" target="_blank" rel="noopener noreferrer">Mail123</a>
+    y <a href="https://mail.tm" target="_blank" rel="noopener noreferrer">Mail.tm</a>.
     El buzón actual queda guardado en este dispositivo.
   </p>
 </main>
@@ -312,10 +346,13 @@
 
 <script>
 (() => {
-  const API = 'https://mail123.fr/api/v1';
+  const MAIL123_API = 'https://mail123.fr/api/v1';
+  const MAILTM_API = 'https://api.mail.tm';
   const STORAGE_KEY = 'correo_temporal_mail123_v2';
-  const HISTORY_KEY = 'correo_temporal_history_v1';
+  const HISTORY_KEY = 'correo_temporal_history_v2';
+  const LEGACY_HISTORY_KEY = 'correo_temporal_history_v1';
   const OTP_CACHE_KEY = 'correo_temporal_otp_cache_v1';
+  const DOMAIN_PREF_KEY = 'correo_temporal_domain_pref_v1';
   const ACTIVE_POLL_MS = 7 * 1000;    // ~8.6 consultas/min, por debajo del límite gratuito de 10/min
   const HIDDEN_POLL_MS = 90 * 1000;
   const WAIT_POLL_MS = 7 * 1000;
@@ -332,18 +369,21 @@
   let lastMessageIds = new Set();
   let refreshInFlight = false;
   let deferredInstallPrompt = null;
+  let mail123Domains = [];
+  let mailTmDomains = [];
+  let domainsLoaded = false;
 
   const $ = id => document.getElementById(id);
   const el = {
     noMailbox:$('noMailbox'), mailbox:$('mailbox'), inboxWrap:$('inboxWrap'), offlineBanner:$('offlineBanner'), installBtn:$('installBtn'), installHint:$('installHint'),
     generateBtn:$('generateBtn'), emailAddress:$('emailAddress'),
-    copyEmailBtn:$('copyEmailBtn'), mailCount:$('mailCount'), livePill:$('livePill'),
+    copyEmailBtn:$('copyEmailBtn'), mailCount:$('mailCount'), livePill:$('livePill'), providerBadge:$('providerBadge'),
     refreshBtn:$('refreshBtn'), newBtn:$('newBtn'), waitBtn:$('waitBtn'), recentWrap:$('recentWrap'), recentList:$('recentList'), recentCount:$('recentCount'),
     emptyInbox:$('emptyInbox'), messageList:$('messageList'), lastUpdate:$('lastUpdate'),
     modal:$('modal'), closeModalBtn:$('closeModalBtn'),
     modalSubject:$('modalSubject'), modalMeta:$('modalMeta'), modalBody:$('modalBody'),
     otpBox:$('otpBox'), otpCode:$('otpCode'), copyOtpBtn:$('copyOtpBtn'),
-    links:$('links'), mailViewTitle:$('mailViewTitle'), mailFrameWrap:$('mailFrameWrap'), mailFrame:$('mailFrame'), toast:$('toast')
+    links:$('links'), mailViewTitle:$('mailViewTitle'), mailFrameWrap:$('mailFrameWrap'), mailFrame:$('mailFrame'), domainSelect:$('domainSelect'), reloadDomainsBtn:$('reloadDomainsBtn'), domainNote:$('domainNote'), toast:$('toast')
   };
 
   function save(){
@@ -358,10 +398,36 @@
   }
 
 
+  function safeBoxSnapshot(source){
+    if (!source?.address) return null;
+    return {
+      address: normalizeEmail(source.address),
+      provider: source.provider || inferProviderFromAddress(source.address),
+      domain: source.domain || normalizeEmail(source.address).split('@')[1] || '',
+      createdAt: source.createdAt || Date.now(),
+      password: source.password || '',
+      token: source.token || '',
+      accountId: source.accountId || ''
+    };
+  }
+
   function loadHistory(){
     try{
       history = JSON.parse(localStorage.getItem(HISTORY_KEY) || '[]');
-      if (!Array.isArray(history)) history = [];
+      if (!Array.isArray(history) || !history.length){
+        const legacy = JSON.parse(localStorage.getItem(LEGACY_HISTORY_KEY) || '[]');
+        history = Array.isArray(legacy)
+          ? legacy.map(item => ({
+              address: normalizeEmail(item?.address || ''),
+              lastUsed: item?.lastUsed || Date.now(),
+              box: {
+                address: normalizeEmail(item?.address || ''),
+                provider:'mail123',
+                domain: normalizeEmail(item?.address || '').split('@')[1] || ''
+              }
+            })).filter(item => isValidEmail(item.address))
+          : [];
+      }
     }catch{ history = []; }
   }
 
@@ -369,11 +435,32 @@
     localStorage.setItem(HISTORY_KEY, JSON.stringify(history.slice(0,10)));
   }
 
+  function findHistoryBox(address){
+    const a = normalizeEmail(address);
+    const item = history.find(x => normalizeEmail(x?.address) === a);
+    if (!item) return null;
+    return {
+      ...(item.box || {}),
+      address:a,
+      provider:item.box?.provider || inferProviderFromAddress(a),
+      domain:item.box?.domain || a.split('@')[1] || ''
+    };
+  }
+
   function rememberAddress(address){
     const a = normalizeEmail(address);
     if (!isValidEmail(a)) return;
-    history = history.filter(item => item.address !== a);
-    history.unshift({address:a, lastUsed:Date.now()});
+
+    const snapshot = box?.address === a
+      ? safeBoxSnapshot(box)
+      : (findHistoryBox(a) || {
+          address:a,
+          provider:inferProviderFromAddress(a),
+          domain:a.split('@')[1] || ''
+        });
+
+    history = history.filter(item => normalizeEmail(item?.address) !== a);
+    history.unshift({address:a, lastUsed:Date.now(), box:snapshot});
     history = history.slice(0,10);
     saveHistory();
     renderHistory();
@@ -408,14 +495,20 @@
       const btn = document.createElement('button');
       btn.className = 'recent-chip' + (box?.address === item.address ? ' current' : '');
       btn.textContent = item.address;
-      btn.title = `Abrir ${item.address}`;
+      btn.title = `Abrir ${item.address} · ${(item.box?.provider || inferProviderFromAddress(item.address)) === 'mailtm' ? 'Mail.tm' : 'Mail123'}`;
       btn.addEventListener('click', async () => {
         if (box?.address === item.address){
           await refresh(true);
           return;
         }
         stopWaitMode();
-        box = {...(box || {}), address:item.address, createdAt:box?.createdAt || Date.now()};
+        box = {
+          ...(item.box || {}),
+          address:item.address,
+          provider:item.box?.provider || inferProviderFromAddress(item.address),
+          domain:item.box?.domain || item.address.split('@')[1] || '',
+          createdAt:item.box?.createdAt || Date.now()
+        };
         save();
         el.emailAddress.value = item.address;
         render();
@@ -456,13 +549,42 @@
     }
   }
 
-  async function getJSON(url){
-    const res = await fetch(url, {cache:'no-store'});
+  async function requestJSON(url, options={}){
+    const headers = {
+      'Accept':'application/json',
+      ...(options.headers || {})
+    };
+    if (options.body && !headers['Content-Type']) headers['Content-Type'] = 'application/json';
+
+    const res = await fetch(url, {
+      cache:'no-store',
+      ...options,
+      headers
+    });
+
+    if (res.status === 204) return null;
+
     let data = null;
     try{ data = await res.json(); }catch{}
-    if (!res.ok) throw new Error((data && (data.error || data.message)) || `HTTP ${res.status}`);
+
+    if (!res.ok){
+      const detail =
+        data?.['hydra:description'] ||
+        data?.detail ||
+        data?.error ||
+        data?.message ||
+        `HTTP ${res.status}`;
+      const err = new Error(detail);
+      err.status = res.status;
+      throw err;
+    }
+
     if (data && data.success === false) throw new Error(data.error || 'La API devolvió un error');
     return data;
+  }
+
+  async function getJSON(url){
+    return requestJSON(url);
   }
 
   function render(){
@@ -470,7 +592,10 @@
     el.noMailbox.hidden = active;
     el.mailbox.hidden = !active;
     el.inboxWrap.hidden = !active;
-    if (active) el.emailAddress.value = box.address;
+    if (active){
+      el.emailAddress.value = box.address;
+      el.providerBadge.textContent = box.provider === 'mailtm' ? 'Mail.tm' : 'Mail123';
+    }
     renderHistory();
   }
 
@@ -492,7 +617,13 @@
     return `${word}${number}`;
   }
 
-  function normalizeDomains(data){
+  const MAIL123_FALLBACK_DOMAINS = [
+    'mail123.fr','mail456.fr','mail789.fr','mail123.cloud','mail1mail.com',
+    'mail123.click','maildaft.com','mail123.com.br','daftmail.cloud',
+    'mailtemp.fr','mail123.beer','mail123box.tech','mail123.pro','mail123.site'
+  ];
+
+  function normalizeMail123Domains(data){
     const raw = Array.isArray(data) ? data :
       (data?.domains || data?.items || data?.data || data?.['hydra:member'] || []);
 
@@ -500,33 +631,249 @@
       if (typeof item === 'string') return item;
       return item?.domain || item?.name || item?.value || '';
     })
-    .map(d => String(d).trim().replace(/^@/, ''))
+    .map(d => String(d).trim().replace(/^@/, '').toLowerCase())
     .filter(Boolean);
 
-    // Fallback oficial conocido, por si el endpoint cambia de formato temporalmente.
-    return list.length ? list : [
-      'mail123.fr','mail456.fr','mail789.fr','mail123.cloud','mail1mail.com',
-      'mail123.click','maildaft.com','mail123.com.br','daftmail.cloud',
-      'mailtemp.fr','mail123.beer','mail123box.tech'
-    ];
+    return [...new Set(list.length ? list : MAIL123_FALLBACK_DOMAINS)];
+  }
+
+  function normalizeMailTmDomains(data){
+    const raw = Array.isArray(data) ? data :
+      (data?.['hydra:member'] || data?.domains || data?.items || []);
+
+    return [...new Set(
+      raw
+        .filter(item => typeof item === 'string' || item?.isActive !== false)
+        .map(item => typeof item === 'string' ? item : item?.domain)
+        .map(d => String(d || '').trim().replace(/^@/, '').toLowerCase())
+        .filter(Boolean)
+    )];
+  }
+
+  function inferProviderFromAddress(address){
+    const domain = normalizeEmail(address).split('@')[1] || '';
+    if (mailTmDomains.includes(domain)) return 'mailtm';
+    if (mail123Domains.includes(domain) || MAIL123_FALLBACK_DOMAINS.includes(domain)) return 'mail123';
+    // Correos creados en versiones anteriores eran Mail123.
+    return 'mail123';
+  }
+
+  function domainOption(value, label){
+    const option = document.createElement('option');
+    option.value = value;
+    option.textContent = label;
+    return option;
+  }
+
+  function populateDomainSelect(){
+    const previous = localStorage.getItem(DOMAIN_PREF_KEY) || el.domainSelect.value || 'mail123:mail123.fr';
+    el.domainSelect.innerHTML = '';
+
+    el.domainSelect.appendChild(domainOption('mail123:mail123.fr', '@mail123.fr ⭐ Recomendado'));
+    el.domainSelect.appendChild(domainOption('auto', 'Automático · todos los disponibles'));
+
+    const group123 = document.createElement('optgroup');
+    group123.label = `Mail123 · ${mail123Domains.length || MAIL123_FALLBACK_DOMAINS.length} dominios`;
+    (mail123Domains.length ? mail123Domains : MAIL123_FALLBACK_DOMAINS)
+      .filter(d => d !== 'mail123.fr')
+      .forEach(d => group123.appendChild(domainOption(`mail123:${d}`, `@${d}`)));
+    el.domainSelect.appendChild(group123);
+
+    if (mailTmDomains.length){
+      const groupTm = document.createElement('optgroup');
+      groupTm.label = `Mail.tm · ${mailTmDomains.length} dominio${mailTmDomains.length === 1 ? '' : 's'} alternativo${mailTmDomains.length === 1 ? '' : 's'}`;
+      mailTmDomains.forEach(d => groupTm.appendChild(domainOption(`mailtm:${d}`, `@${d} · Mail.tm`)));
+      el.domainSelect.appendChild(groupTm);
+    }
+
+    const exists = [...el.domainSelect.options].some(o => o.value === previous);
+    el.domainSelect.value = exists ? previous : 'mail123:mail123.fr';
+    localStorage.setItem(DOMAIN_PREF_KEY, el.domainSelect.value);
+    updateDomainNote();
+  }
+
+  function updateDomainNote(){
+    const value = el.domainSelect.value || 'mail123:mail123.fr';
+    if (value === 'auto'){
+      el.domainNote.textContent = `Automático puede elegir entre ${mail123Domains.length || MAIL123_FALLBACK_DOMAINS.length} dominios de Mail123${mailTmDomains.length ? ` y ${mailTmDomains.length} de Mail.tm` : ''}.`;
+      return;
+    }
+
+    const [provider, domain] = value.split(':');
+    if (provider === 'mailtm'){
+      el.domainNote.textContent = `Alternativo Mail.tm: @${domain}. La app guarda localmente las credenciales temporales para poder volver a abrir esa bandeja.`;
+    }else if (domain === 'mail123.fr'){
+      el.domainNote.textContent = '@mail123.fr queda como favorito porque es el que te está funcionando con Spotify.';
+    }else{
+      el.domainNote.textContent = `Mail123: @${domain}. Si una plataforma lo rechaza, cambia aquí a @mail123.fr u otro dominio.`;
+    }
+  }
+
+  async function loadDomains(force=false){
+    if (domainsLoaded && !force){
+      populateDomainSelect();
+      return;
+    }
+
+    busy(el.reloadDomainsBtn, true, 'Cargando');
+    el.domainNote.textContent = 'Consultando dominios…';
+
+    const [r123, rtm] = await Promise.allSettled([
+      requestJSON(`${MAIL123_API}/domains`),
+      requestJSON(`${MAILTM_API}/domains?page=1`)
+    ]);
+
+    mail123Domains = r123.status === 'fulfilled'
+      ? normalizeMail123Domains(r123.value)
+      : [...MAIL123_FALLBACK_DOMAINS];
+
+    mailTmDomains = rtm.status === 'fulfilled'
+      ? normalizeMailTmDomains(rtm.value)
+      : [];
+
+    domainsLoaded = true;
+    populateDomainSelect();
+    busy(el.reloadDomainsBtn, false);
+
+    if (force){
+      toast(`Dominios: ${mail123Domains.length + mailTmDomains.length}`);
+    }
+  }
+
+  function randomPassword(){
+    const bytes = new Uint8Array(18);
+    crypto.getRandomValues(bytes);
+    const body = Array.from(bytes, b => (b % 36).toString(36)).join('');
+    return `T${body}9!`;
+  }
+
+  async function createMailTmMailbox(domain){
+    let lastError = null;
+
+    for (let attempt=0; attempt<6; attempt++){
+      const address = `${shortAlias()}@${domain}`;
+      const password = randomPassword();
+
+      try{
+        const account = await requestJSON(`${MAILTM_API}/accounts`, {
+          method:'POST',
+          body:JSON.stringify({address,password})
+        });
+
+        const tokenData = await requestJSON(`${MAILTM_API}/token`, {
+          method:'POST',
+          body:JSON.stringify({address,password})
+        });
+
+        return {
+          provider:'mailtm',
+          address,
+          domain,
+          password,
+          token:tokenData?.token || '',
+          accountId:account?.id || tokenData?.id || '',
+          createdAt:Date.now()
+        };
+      }catch(err){
+        lastError = err;
+        if (err?.status !== 422) break;
+      }
+    }
+
+    const msg = lastError?.message || 'No fue posible crear la cuenta en Mail.tm.';
+    throw new Error(`Mail.tm: ${msg}`);
   }
 
   async function buildShortMailbox(){
-    let domains = [];
-    try{
-      const domainData = await getJSON(`${API}/domains`);
-      domains = normalizeDomains(domainData);
-    }catch(err){
-      console.warn('No pude consultar dominios; uso fallback.', err);
-      domains = normalizeDomains(null);
+    await loadDomains();
+
+    let selection = el.domainSelect.value || 'mail123:mail123.fr';
+
+    if (selection === 'auto'){
+      const pool = [
+        ...mail123Domains.map(domain => ({provider:'mail123',domain})),
+        ...mailTmDomains.map(domain => ({provider:'mailtm',domain}))
+      ];
+      const pick = pool[Math.floor(Math.random() * pool.length)] || {provider:'mail123',domain:'mail123.fr'};
+      selection = `${pick.provider}:${pick.domain}`;
     }
 
-    const domain = domains[Math.floor(Math.random() * domains.length)];
+    const [provider, domain] = selection.split(':');
+
+    if (provider === 'mailtm'){
+      return createMailTmMailbox(domain);
+    }
+
     return {
-      address: `${shortAlias()}@${domain}`,
-      domain,
-      createdAt: Date.now()
+      provider:'mail123',
+      address:`${shortAlias()}@${domain || 'mail123.fr'}`,
+      domain:domain || 'mail123.fr',
+      createdAt:Date.now()
     };
+  }
+
+  async function ensureMailTmToken(){
+    if (box?.provider !== 'mailtm') return '';
+    if (box.token) return box.token;
+
+    if (!box.password){
+      throw new Error('Esta bandeja de Mail.tm no tiene sus credenciales guardadas en este dispositivo.');
+    }
+
+    const data = await requestJSON(`${MAILTM_API}/token`, {
+      method:'POST',
+      body:JSON.stringify({address:box.address,password:box.password})
+    });
+    box.token = data?.token || '';
+    save();
+    rememberAddress(box.address);
+    return box.token;
+  }
+
+  async function mailTmAuthorized(path, options={}){
+    let token = await ensureMailTmToken();
+
+    try{
+      return await requestJSON(`${MAILTM_API}${path}`, {
+        ...options,
+        headers:{
+          ...(options.headers || {}),
+          'Authorization':`Bearer ${token}`
+        }
+      });
+    }catch(err){
+      if (err?.status !== 401 || !box?.password) throw err;
+
+      box.token = '';
+      token = await ensureMailTmToken();
+      return requestJSON(`${MAILTM_API}${path}`, {
+        ...options,
+        headers:{
+          ...(options.headers || {}),
+          'Authorization':`Bearer ${token}`
+        }
+      });
+    }
+  }
+
+  async function fetchProviderMessages(){
+    if (box?.provider === 'mailtm'){
+      const data = await mailTmAuthorized('/messages?page=1');
+      return data?.['hydra:member'] || data?.messages || [];
+    }
+
+    const address = encodeURIComponent(box.address);
+    const data = await requestJSON(`${MAIL123_API}/mailbox/${address}/messages`);
+    return Array.isArray(data) ? data : (data?.messages || []);
+  }
+
+  async function fetchProviderMessageDetail(id){
+    if (box?.provider === 'mailtm'){
+      return mailTmAuthorized(`/messages/${encodeURIComponent(id)}`);
+    }
+
+    const address = encodeURIComponent(box.address);
+    return requestJSON(`${MAIL123_API}/mailbox/${address}/messages/${encodeURIComponent(id)}`);
   }
 
 
@@ -616,8 +963,6 @@
   async function generate(){
     busy(el.generateBtn, true, 'Generando');
     try{
-      // Mail123 permite usar un pseudo propio y cualquiera de sus dominios activos.
-      // Generamos aquí un alias corto y fácil de copiar.
       box = await buildShortMailbox();
       if (!box?.address) throw new Error('No llegó una dirección válida');
       save(); rememberAddress(box.address); render(); renderMessages([]);
@@ -648,15 +993,28 @@
     }
 
     if (!box || box.address !== typed){
-      box = {
-        ...(box || {}),
-        address: typed,
-        createdAt: box?.createdAt || Date.now()
-      };
+      const saved = findHistoryBox(typed);
+      if (saved){
+        box = {...saved, address:typed};
+      }else{
+        const provider = inferProviderFromAddress(typed);
+        if (provider === 'mailtm'){
+          throw new Error('Para volver a abrir un correo de Mail.tm debes haberlo generado antes en este mismo dispositivo.');
+        }
+        box = {
+          address:typed,
+          provider:'mail123',
+          domain:typed.split('@')[1] || '',
+          createdAt:Date.now()
+        };
+      }
+
       save();
       rememberAddress(typed);
       el.emailAddress.value = typed;
     }
+
+    if (!box.provider) box.provider = inferProviderFromAddress(typed);
     return typed;
   }
 
@@ -674,9 +1032,7 @@
     if (cached) return cached;
 
     try{
-      const address = encodeURIComponent(box.address);
-      const mid = encodeURIComponent(id);
-      const raw = await getJSON(`${API}/mailbox/${address}/messages/${mid}`);
+      const raw = await fetchProviderMessageDetail(id);
       const m = unwrapMessage(raw);
       const body = bestBodyText(m, raw);
       const htmlReadable = extractReadableHtmlText(body.html);
@@ -745,9 +1101,7 @@
     busy(el.refreshBtn, true, 'Actualizando');
     try{
       const typedAddress = syncAddressFromInput();
-      const address = encodeURIComponent(typedAddress);
-      const data = await getJSON(`${API}/mailbox/${address}/messages`);
-      const rawMessages = Array.isArray(data) ? data : (data?.messages || []);
+      const rawMessages = await fetchProviderMessages();
       const messages = await enrichMessagesWithOtp(rawMessages);
 
       const currentIds = new Set(messages.map(messageIdOf).filter(Boolean));
@@ -887,8 +1241,14 @@
     const wanted = new Set(wantedKeys.map(k => k.toLowerCase()));
 
     for (const [key, value] of Object.entries(obj)){
-      if (wanted.has(String(key).toLowerCase()) && typeof value === 'string' && value.trim()){
-        return decodeMaybeBase64(value);
+      if (wanted.has(String(key).toLowerCase())){
+        if (typeof value === 'string' && value.trim()){
+          return decodeMaybeBase64(value);
+        }
+        if (Array.isArray(value)){
+          const joined = value.filter(v => typeof v === 'string' && v.trim()).join('\n');
+          if (joined) return decodeMaybeBase64(joined);
+        }
       }
     }
     for (const value of Object.values(obj)){
@@ -1304,9 +1664,7 @@
 
   async function openMessage(id, summary){
     try{
-      const address = encodeURIComponent(box.address);
-      const mid = encodeURIComponent(id);
-      const raw = await getJSON(`${API}/mailbox/${address}/messages/${mid}`);
+      const raw = await fetchProviderMessageDetail(id);
       const m = unwrapMessage(raw);
 
       const subject =
@@ -1517,6 +1875,12 @@
   el.installBtn.addEventListener('click', installApp);
 
 
+  el.domainSelect.addEventListener('change', () => {
+    localStorage.setItem(DOMAIN_PREF_KEY, el.domainSelect.value);
+    updateDomainNote();
+  });
+  el.reloadDomainsBtn.addEventListener('click', () => loadDomains(true));
+
   document.addEventListener('visibilitychange', handleVisibilityChange);
 
   el.generateBtn.addEventListener('click', generate);
@@ -1550,6 +1914,7 @@
   updateOnlineState();
   renderInstallState();
   registerServiceWorker();
+  loadDomains();
 
   load();
   loadHistory();

@@ -1,4 +1,4 @@
-# Correo Temporal Mini v10 — PWA
+# Correo Temporal Mini v12 — PWA
 
 Esta versión está preparada para usarse e instalarse tanto en PC como en celular.
 
@@ -34,3 +34,24 @@ Safari → Compartir → Agregar a pantalla de inicio.
 
 ## Importante
 El buzón necesita internet para consultar nuevos mensajes, incluso cuando la app está instalada.
+
+
+## Cambio v11
+- El botón **Copiar correo** ahora es rectangular y usa el mismo estilo visual de los otros botones.
+- En celular se muestra a ancho completo debajo de la dirección.
+- Se actualizó el Service Worker para que las nuevas versiones de GitHub Pages se reflejen mejor en la app instalada.
+
+
+## Cambio v12 — dominios y segundo proveedor
+- Selector de dominio antes de generar el correo.
+- `@mail123.fr` queda como opción recomendada/favorita.
+- Carga en vivo todos los dominios activos de Mail123.
+- Fallback actualizado con 14 dominios conocidos de Mail123.
+- Integra Mail.tm como segundo proveedor gratuito y muestra sus dominios activos.
+- Opción “Automático” para escoger entre los dominios disponibles.
+- Los buzones Mail.tm guardan localmente su token/contraseña temporal para poder reabrirlos desde el historial.
+- Los correos Mail123 anteriores siguen funcionando con solo escribir la dirección.
+- Service Worker actualizado para no cachear ninguna llamada a Mail123 ni Mail.tm.
+
+### Nota
+Mail.tm exige atribución visible; la app mantiene el enlace a Mail.tm en el pie de página.
