@@ -289,6 +289,24 @@
     .token-input:focus{border-color:#4b79b9}
     .token-note{margin-top:7px;color:var(--muted);font-size:10px;line-height:1.45}
     .token-note a{color:#9ebeea}
+    .worker-config{
+      margin-top:10px;border:1px solid var(--line);border-radius:14px;background:#0d1628;padding:0 12px
+    }
+    .worker-config summary{
+      cursor:pointer;padding:11px 0;color:#cfdbed;font-size:11px;font-weight:800
+    }
+    .worker-inner{padding:0 0 12px}
+    .worker-row{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:8px}
+    .worker-input{
+      width:100%;min-height:40px;border:1px solid var(--line);border-radius:11px;background:#101a30;
+      color:var(--text);padding:0 11px;outline:none;font-size:12px
+    }
+    .worker-input:focus{border-color:#4b79b9}
+    .worker-status{margin-top:7px;color:var(--muted);font-size:10px;line-height:1.45}
+    .worker-status.ok{color:#bff2d3}
+    .worker-status.bad{color:#ffb0b8}
+    @media(max-width:639px){.worker-row{grid-template-columns:1fr}}
+
     @media(max-width:639px){.token-row{grid-template-columns:1fr}}
 
 
@@ -343,7 +361,21 @@
 
     <div id="providerSummary" class="provider-summary"></div>
 
-    <details class="dropmail-config">
+    
+    <details class="worker-config" open>
+      <summary>☁️ Cloudflare Worker · Mailnesia + Guerrilla Mail</summary>
+      <div class="worker-inner">
+        <div class="worker-row">
+          <input id="workerUrl" class="worker-input" type="url" placeholder="https://correo-temp-api.tuusuario.workers.dev" autocomplete="off" spellcheck="false" />
+          <button id="saveWorkerUrlBtn" class="btn ghost" type="button">Conectar Worker</button>
+        </div>
+        <div id="workerStatus" class="worker-status">
+          Sin conectar. Después de publicar el Worker, pega aquí su URL una sola vez.
+        </div>
+      </div>
+    </details>
+
+<details class="dropmail-config">
       <summary>＋ Activar DropMail (4.º gestor · dominios rotativos)</summary>
       <div class="dropmail-inner">
         <div class="token-row">
@@ -487,6 +519,7 @@
   const MAILGW_API = 'https://api.mail.gw';
   const DROPMAIL_API = 'https://dropmail.me/api/graphql';
   const DROPMAIL_TOKEN_KEY = 'correo_temporal_dropmail_token_v1';
+  const WORKER_URL_KEY = 'correo_temporal_worker_url_v1';
   const STORAGE_KEY = 'correo_temporal_mail123_v2';
   const HISTORY_KEY = 'correo_temporal_history_v2';
   const LEGACY_HISTORY_KEY = 'correo_temporal_history_v1';
@@ -511,6 +544,8 @@
   let mail123Domains = [];
   let mailTmDomains = [];
   let mailGwDomains = [];
+  let mailnesiaDomains = [];
+  let guerrillaDomains = [];
   let dropMailDomains = [];
   let dropMailMessageCache = new Map();
   let domainsLoaded = false;
@@ -526,7 +561,7 @@
     modal:$('modal'), closeModalBtn:$('closeModalBtn'),
     modalSubject:$('modalSubject'), modalMeta:$('modalMeta'), modalBody:$('modalBody'),
     otpBox:$('otpBox'), otpCode:$('otpCode'), copyOtpBtn:$('copyOtpBtn'),
-    links:$('links'), mailViewTitle:$('mailViewTitle'), mailFrameWrap:$('mailFrameWrap'), mailFrame:$('mailFrame'), domainSelect:$('domainSelect'), reloadDomainsBtn:$('reloadDomainsBtn'), domainNote:$('domainNote'), confirmModal:$('confirmModal'), confirmCancelBtn:$('confirmCancelBtn'), confirmOkBtn:$('confirmOkBtn'), confirmTitle:$('confirmTitle'), confirmText:$('confirmText'), providerSummary:$('providerSummary'), dropmailToken:$('dropmailToken'), saveDropmailTokenBtn:$('saveDropmailTokenBtn'), toast:$('toast')
+    links:$('links'), mailViewTitle:$('mailViewTitle'), mailFrameWrap:$('mailFrameWrap'), mailFrame:$('mailFrame'), domainSelect:$('domainSelect'), reloadDomainsBtn:$('reloadDomainsBtn'), domainNote:$('domainNote'), confirmModal:$('confirmModal'), confirmCancelBtn:$('confirmCancelBtn'), confirmOkBtn:$('confirmOkBtn'), confirmTitle:$('confirmTitle'), confirmText:$('confirmText'), providerSummary:$('providerSummary'), workerUrl:$('workerUrl'), saveWorkerUrlBtn:$('saveWorkerUrlBtn'), workerStatus:$('workerStatus'), dropmailToken:$('dropmailToken'), saveDropmailTokenBtn:$('saveDropmailTokenBtn'), toast:$('toast')
   };
 
   function save(){
@@ -553,7 +588,8 @@
       accountId: source.accountId || '',
       sessionId: source.sessionId || '',
       expiresAt: source.expiresAt || '',
-      dropmailDomainId: source.dropmailDomainId || ''
+      dropmailDomainId: source.dropmailDomainId || '',
+      sidToken: source.sidToken || ''
     };
   }
 
@@ -827,6 +863,8 @@
       el.providerBadge.textContent =
         box.provider === 'mailtm' ? 'Mail.tm' :
         box.provider === 'mailgw' ? 'Mail.gw' :
+        box.provider === 'mailnesia' ? 'Mailnesia' :
+        box.provider === 'guerrilla' ? 'Guerrilla' :
         box.provider === 'dropmail' ? 'DropMail' : 'Mail123';
     }
     renderHistory();
@@ -893,6 +931,43 @@
     else localStorage.removeItem(DROPMAIL_TOKEN_KEY);
   }
 
+  function getWorkerUrl(){
+    return String(localStorage.getItem(WORKER_URL_KEY) || '').trim().replace(/\/+$/,'');
+  }
+
+  function setWorkerUrl(url){
+    const value = String(url || '').trim().replace(/\/+$/,'');
+    if (value) localStorage.setItem(WORKER_URL_KEY, value);
+    else localStorage.removeItem(WORKER_URL_KEY);
+  }
+
+  async function workerJSON(path, options={}){
+    const base = getWorkerUrl();
+    if (!base) throw new Error('Primero conecta el Cloudflare Worker.');
+
+    return requestJSON(`${base}${path}`, options);
+  }
+
+  async function checkWorker(){
+    const base = getWorkerUrl();
+    if (!base){
+      el.workerStatus.textContent = 'Sin conectar. Pega la URL del Worker.';
+      el.workerStatus.className = 'worker-status';
+      return false;
+    }
+
+    try{
+      const data = await requestJSON(`${base}/health`);
+      el.workerStatus.textContent = `Conectado · ${data?.service || 'Correo Temp API'}`;
+      el.workerStatus.className = 'worker-status ok';
+      return true;
+    }catch(err){
+      el.workerStatus.textContent = `No conecta: ${err?.message || 'error'}`;
+      el.workerStatus.className = 'worker-status bad';
+      return false;
+    }
+  }
+
   async function dropMailGraphQL(query){
     const token = getDropmailToken();
     if (!token) throw new Error('DropMail requiere un token gratuito af_…');
@@ -926,6 +1001,8 @@
 
     if (mailTmDomains.includes(domain)) return 'mailtm';
     if (mailGwDomains.includes(domain)) return 'mailgw';
+    if (mailnesiaDomains.includes(domain)) return 'mailnesia';
+    if (guerrillaDomains.includes(domain)) return 'guerrilla';
     if (dropMailDomains.some(d => d.name === domain)) return 'dropmail';
     if (mail123Domains.includes(domain) || MAIL123_FALLBACK_DOMAINS.includes(domain)) return 'mail123';
 
@@ -936,6 +1013,8 @@
   function providerLabel(provider){
     return provider === 'mailtm' ? 'Mail.tm' :
       provider === 'mailgw' ? 'Mail.gw' :
+      provider === 'mailnesia' ? 'Mailnesia' :
+      provider === 'guerrilla' ? 'Guerrilla Mail' :
       provider === 'dropmail' ? 'DropMail' : 'Mail123';
   }
 
@@ -957,6 +1036,8 @@
         .map(domain => ({provider:'mail123',domain})),
       ...mailTmDomains.map(domain => ({provider:'mailtm',domain})),
       ...mailGwDomains.map(domain => ({provider:'mailgw',domain})),
+      ...mailnesiaDomains.map(domain => ({provider:'mailnesia',domain})),
+      ...guerrillaDomains.map(domain => ({provider:'guerrilla',domain})),
       ...dropMailDomains.map(item => ({provider:'dropmail',domain:item.name,domainId:item.id}))
     ];
     return pool.filter(item => domainPassesTld(item.domain));
@@ -966,6 +1047,8 @@
     const dropToken = !!getDropmailToken();
     const items = [
       {label:'Mail123', count:(mail123Domains.length || MAIL123_FALLBACK_DOMAINS.length), ok:true},
+      {label:'Mailnesia', count:mailnesiaDomains.length, ok:mailnesiaDomains.length > 0},
+      {label:'Guerrilla', count:guerrillaDomains.length, ok:guerrillaDomains.length > 0},
       {label:'Mail.tm', count:mailTmDomains.length, ok:mailTmDomains.length > 0},
       {label:'Mail.gw', count:mailGwDomains.length, ok:mailGwDomains.length > 0},
       {label:'DropMail', count:dropMailDomains.length, ok:dropToken && dropMailDomains.length > 0, suffix:dropToken ? '' : ' · token'}
@@ -1016,6 +1099,16 @@
         domains:mailGwDomains.filter(domainPassesTld)
       },
       {
+        provider:'mailnesia',
+        label:'Mailnesia · varios días',
+        domains:mailnesiaDomains.filter(domainPassesTld)
+      },
+      {
+        provider:'guerrilla',
+        label:'Guerrilla · 60 min',
+        domains:guerrillaDomains.filter(domainPassesTld)
+      },
+      {
         provider:'dropmail',
         label:'DropMail · rotativos',
         domains:dropMailDomains.filter(d => domainPassesTld(d.name))
@@ -1053,6 +1146,8 @@
       ...(mail123Domains.length ? mail123Domains : MAIL123_FALLBACK_DOMAINS),
       ...mailTmDomains,
       ...mailGwDomains,
+      ...mailnesiaDomains,
+      ...guerrillaDomains,
       ...dropMailDomains.map(d => d.name)
     ];
 
@@ -1093,6 +1188,12 @@
     if (provider === 'mailgw'){
       el.domainNote.textContent =
         `Mail.gw: @${domain}. Es útil para verificaciones rápidas, pero sus mensajes duran aproximadamente 10 minutos.`;
+    }else if (provider === 'mailnesia'){
+      el.domainNote.textContent =
+        `Mailnesia: @${domain}. Sus dominios alternativos suelen durar alrededor de un año y los mensajes normalmente algunos días.`;
+    }else if (provider === 'guerrilla'){
+      el.domainNote.textContent =
+        `Guerrilla Mail: @${domain}. La bandeja usa una sesión temporal y sus mensajes duran aproximadamente 60 minutos.`;
     }else if (provider === 'dropmail'){
       el.domainNote.textContent =
         `DropMail: @${domain}. Sus dominios rotativos pueden cambiar con el tiempo; la sesión se mantiene viva mientras se consulte.`;
@@ -1118,16 +1219,19 @@
 
     const dropToken = getDropmailToken();
 
+    const workerBase = getWorkerUrl();
+
     const requests = [
       requestJSON(`${MAIL123_API}/domains`),
       requestJSON(`${MAILTM_API}/domains?page=1`),
       requestJSON(`${MAILGW_API}/domains?page=1`),
+      workerBase ? workerJSON('/domains') : Promise.resolve(null),
       dropToken
         ? dropMailGraphQL('query { domains { id name availableVia expiresAt } }')
         : Promise.resolve(null)
     ];
 
-    const [r123, rtm, rgw, rdrop] = await Promise.allSettled(requests);
+    const [r123, rtm, rgw, rworker, rdrop] = await Promise.allSettled(requests);
 
     mail123Domains = r123.status === 'fulfilled'
       ? normalizeMail123Domains(r123.value)
@@ -1141,6 +1245,10 @@
       ? normalizeAccountDomains(rgw.value)
       : [];
 
+    const workerData = (rworker.status === 'fulfilled' && rworker.value) ? rworker.value : null;
+    mailnesiaDomains = Array.isArray(workerData?.mailnesia) ? workerData.mailnesia : [];
+    guerrillaDomains = Array.isArray(workerData?.guerrilla) ? workerData.guerrilla : [];
+
     dropMailDomains = (rdrop.status === 'fulfilled' && rdrop.value)
       ? normalizeDropMailDomains(rdrop.value)
       : [];
@@ -1151,7 +1259,8 @@
 
     if (force){
       const total = (mail123Domains.length || MAIL123_FALLBACK_DOMAINS.length)
-        + mailTmDomains.length + mailGwDomains.length + dropMailDomains.length;
+        + mailTmDomains.length + mailGwDomains.length
+        + mailnesiaDomains.length + guerrillaDomains.length + dropMailDomains.length;
       toast(`Dominios disponibles: ${total}`);
     }
   }
@@ -1235,6 +1344,32 @@
     };
   }
 
+
+  async function createMailnesiaMailbox(domain){
+    const alias = shortAlias();
+    return {
+      provider:'mailnesia',
+      address:`${alias}@${domain}`,
+      domain,
+      createdAt:Date.now()
+    };
+  }
+
+  async function createGuerrillaMailbox(domain){
+    const alias = shortAlias();
+    const data = await workerJSON(`/guerrilla/create?alias=${encodeURIComponent(alias)}&domain=${encodeURIComponent(domain)}`);
+
+    if (!data?.sidToken) throw new Error('Guerrilla Mail no devolvió una sesión válida.');
+
+    return {
+      provider:'guerrilla',
+      address:`${alias}@${domain}`,
+      domain,
+      sidToken:data.sidToken,
+      createdAt:Date.now()
+    };
+  }
+
   async function buildShortMailbox(){
     await loadDomains();
 
@@ -1251,6 +1386,12 @@
 
     if (provider === 'mailtm' || provider === 'mailgw'){
       return createAccountMailbox(provider, domain);
+    }
+    if (provider === 'mailnesia'){
+      return createMailnesiaMailbox(domain);
+    }
+    if (provider === 'guerrilla'){
+      return createGuerrillaMailbox(domain);
     }
     if (provider === 'dropmail'){
       return createDropMailMailbox(domain);
@@ -1364,6 +1505,11 @@
     return mapped;
   }
 
+
+  function normalizeWorkerMessages(data){
+    return Array.isArray(data?.messages) ? data.messages : (Array.isArray(data) ? data : []);
+  }
+
   async function fetchProviderMessages(){
     if (box?.provider === 'mailtm' || box?.provider === 'mailgw'){
       const data = await accountAuthorized(box.provider, '/messages?page=1');
@@ -1372,6 +1518,17 @@
 
     if (box?.provider === 'dropmail'){
       return fetchDropMailMessages();
+    }
+
+    if (box?.provider === 'mailnesia'){
+      const data = await workerJSON(`/mailnesia/messages?address=${encodeURIComponent(box.address)}`);
+      return normalizeWorkerMessages(data);
+    }
+
+    if (box?.provider === 'guerrilla'){
+      if (!box.sidToken) throw new Error('Esta bandeja de Guerrilla Mail no tiene sesión guardada.');
+      const data = await workerJSON(`/guerrilla/messages?sid=${encodeURIComponent(box.sidToken)}`);
+      return normalizeWorkerMessages(data);
     }
 
     const address = encodeURIComponent(box.address);
@@ -1390,6 +1547,17 @@
       }
       const messages = await fetchDropMailMessages();
       return messages.find(m => String(m.id) === String(id)) || {};
+    }
+
+    if (box?.provider === 'mailnesia'){
+      const data = await workerJSON(`/mailnesia/message?address=${encodeURIComponent(box.address)}&id=${encodeURIComponent(id)}`);
+      return data?.message || data || {};
+    }
+
+    if (box?.provider === 'guerrilla'){
+      if (!box.sidToken) throw new Error('Esta bandeja de Guerrilla Mail no tiene sesión guardada.');
+      const data = await workerJSON(`/guerrilla/message?sid=${encodeURIComponent(box.sidToken)}&id=${encodeURIComponent(id)}`);
+      return data?.message || data || {};
     }
 
     const address = encodeURIComponent(box.address);
@@ -1517,12 +1685,12 @@
         box = {...saved, address:typed};
       }else{
         const provider = inferProviderFromAddress(typed);
-        if (provider === 'mailtm' || provider === 'mailgw' || provider === 'dropmail'){
+        if (provider === 'mailtm' || provider === 'mailgw' || provider === 'guerrilla' || provider === 'dropmail'){
           throw new Error(`Para volver a abrir un correo de ${providerLabel(provider)} debes haberlo generado antes en este mismo dispositivo.`);
         }
         box = {
           address:typed,
-          provider:'mail123',
+          provider:provider === 'mailnesia' ? 'mailnesia' : 'mail123',
           domain:typed.split('@')[1] || '',
           createdAt:Date.now()
         };
@@ -2429,6 +2597,29 @@
   window.addEventListener('offline', updateOnlineState);
   el.installBtn.addEventListener('click', installApp);
 
+
+  el.workerUrl.value = getWorkerUrl();
+
+  el.saveWorkerUrlBtn.addEventListener('click', async () => {
+    const value = String(el.workerUrl.value || '').trim().replace(/\/+$/,'');
+    if (value && !/^https:\/\//i.test(value)){
+      toast('La URL del Worker debe comenzar con https://');
+      return;
+    }
+
+    setWorkerUrl(value);
+    domainsLoaded = false;
+    mailnesiaDomains = [];
+    guerrillaDomains = [];
+
+    const ok = await checkWorker();
+    if (ok){
+      await loadDomains(true);
+      toast('Worker conectado');
+    }
+  });
+
+  checkWorker();
 
   el.dropmailToken.value = getDropmailToken();
 

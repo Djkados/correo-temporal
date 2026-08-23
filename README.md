@@ -1,4 +1,4 @@
-# Correo Temporal Mini v15 — PWA
+# Correo Temporal Mini v16 — PWA
 
 Esta versión está preparada para usarse e instalarse tanto en PC como en celular.
 
@@ -101,3 +101,35 @@ DropMail requiere desde 2026 un token gratuito generado en:
 https://dropmail.me/api/
 
 El token se guarda únicamente en `localStorage` del dispositivo y no forma parte del repositorio de GitHub.
+
+
+## Cambio v16 — Worker + dominios reales adicionales
+
+Se añade un Cloudflare Worker opcional para integrar proveedores que no funcionan de forma fiable directamente desde GitHub Pages.
+
+### Proveedores del Worker
+- **Mailnesia**:
+  - `mailnesia.com`
+  - `airmailed.shop`
+  - `bulkfinder.site`
+  - `emaill.mom`
+  - `mailed.click`
+  - `poofmail.fit`
+- **Guerrilla Mail**:
+  - `sharklasers.com`
+  - `guerrillamail.info`
+  - `grr.la`
+  - `guerrillamail.biz`
+  - `guerrillamail.com`
+  - `guerrillamail.de`
+  - `guerrillamail.net`
+  - `guerrillamail.org`
+  - `guerrillamailblock.com`
+  - `pokemail.net`
+  - `spam4.me`
+
+### Publicación
+Publica `cloudflare-worker/worker.js` como Cloudflare Worker y pega su URL HTTPS en la sección:
+**Cloudflare Worker · Mailnesia + Guerrilla Mail**
+
+La URL se guarda solamente en el navegador.
