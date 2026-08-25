@@ -1,4 +1,4 @@
-# Correo Temporal Mini v26 — PWA
+# Correo Temporal Mini v27 — PWA
 
 Esta versión está preparada para usarse e instalarse tanto en PC como en celular.
 
@@ -268,3 +268,23 @@ Generator.email es útil como servicio manual y ofrece muchos dominios, pero no 
 
 ### TempMail.lol
 Puede volver a habilitarse en el futuro si se usa una API key de pago o un backend cuya red sea aceptada por su nivel gratuito, pero ya no afecta la experiencia normal.
+
+
+## Cambio v27 — aprendizaje de entregabilidad
+- **Esperar código** ahora sirve también como prueba real de entregabilidad.
+- Si pasan los 5 minutos completos sin recibir ningún mensaje:
+  - 1.er fallo consecutivo → dominio **En observación**.
+  - 2.º fallo consecutivo → dominio pausado en **Automático por 24 horas**.
+  - 3.er fallo consecutivo o más → pausa de **72 horas**.
+- Si llega cualquier correo durante la espera, el dominio recupera su estado y se reinician los fallos consecutivos.
+- Los dominios pausados:
+  - dejan de seleccionarse en **Automático**;
+  - siguen visibles y utilizables manualmente.
+- El selector marca dominios con:
+  - `⚠️ observación`
+  - `⚠️ pausado`
+- En **⚙️ Configuración → Entregabilidad automática** se muestran los dominios penalizados.
+- Botón **Restablecer** para borrar el historial de entregabilidad si hubo un falso negativo.
+- Si todos los dominios de un filtro estuvieran pausados, Automático conserva un fallback para no quedar inutilizable.
+- Frontend visible como **v27**.
+- No requiere cambios en el Cloudflare Worker v19.

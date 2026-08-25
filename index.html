@@ -309,6 +309,21 @@
       padding:6px 9px;font-size:10px;font-weight:800
     }
     .settings-chip.ok{color:#c9f6d9;border-color:rgba(70,216,137,.25);background:rgba(70,216,137,.07)}
+    .settings-chip.warn{
+      color:#ffe0a3;border-color:rgba(255,190,70,.30);background:rgba(255,190,70,.08)
+    }
+    .settings-chip.bad{
+      color:#ffb9c0;border-color:rgba(255,104,117,.30);background:rgba(255,104,117,.08)
+    }
+    .health-box{
+      margin-top:10px;border:1px solid var(--line);border-radius:14px;background:#0d1628;padding:12px
+    }
+    .health-head{display:flex;align-items:center;justify-content:space-between;gap:10px}
+    .health-head b{font-size:12px}
+    .health-help{margin-top:5px;color:var(--muted);font-size:10px;line-height:1.45}
+    .health-list{display:flex;flex-wrap:wrap;gap:7px;margin-top:9px}
+    .health-empty{margin-top:8px;color:var(--muted);font-size:10.5px}
+
     @media(max-width:639px){
       .top-tools{gap:6px}
       .settings-btn,.install-btn{padding:0 10px}
@@ -546,7 +561,7 @@
       <div>
         <div class="eyebrow">Configuración</div>
         <h3 id="settingsTitle">Gestores de correo</h3>
-        <div class="standalone-note">Versión <b id="appVersionLabel">v26</b></div>
+        <div class="standalone-note">Versión <b id="appVersionLabel">v27</b></div>
       </div>
       <button id="closeSettingsBtn" class="icon-btn" type="button">✕</button>
     </div>
@@ -564,6 +579,21 @@
           <div id="workerStatus" class="worker-status">Sin conectar.</div>
         </div>
       </details>
+    </div>
+
+    <div class="settings-block">
+      <div class="health-box">
+        <div class="health-head">
+          <b>📡 Entregabilidad automática</b>
+          <button id="resetDomainHealthBtn" class="btn small ghost" type="button">Restablecer</button>
+        </div>
+        <div class="health-help">
+          Si “Esperar código” termina sin recibir ningún mensaje, el dominio entra en observación.
+          Tras fallos consecutivos se pausa temporalmente solo en Automático; manualmente sigue disponible.
+        </div>
+        <div id="domainHealthList" class="health-list"></div>
+        <div id="domainHealthEmpty" class="health-empty">Sin dominios penalizados.</div>
+      </div>
     </div>
 
     <div class="settings-block">
@@ -607,7 +637,7 @@
   const DROPMAIL_TOKEN_KEY = 'correo_temporal_dropmail_token_v1';
   const WORKER_URL_KEY = 'correo_temporal_worker_url_v1';
   const DEFAULT_WORKER_URL = 'https://correo-temp-api.djkados11.workers.dev';
-  const APP_VERSION = '26.0';
+  const APP_VERSION = '27.0';
   const STORAGE_KEY = 'correo_temporal_mail123_v2';
   const HISTORY_KEY = 'correo_temporal_history_v2';
   const LEGACY_HISTORY_KEY = 'correo_temporal_history_v1';
@@ -615,6 +645,10 @@
   const DOMAIN_PREF_KEY = 'correo_temporal_domain_pref_v1';
   const AUTO_LAST_DOMAIN_KEY = 'correo_temporal_auto_last_domain_v1';
   const AUTO_LAST_PROVIDER_KEY = 'correo_temporal_auto_last_provider_v1';
+  const DOMAIN_HEALTH_KEY = 'correo_temporal_domain_health_v1';
+  const DOMAIN_BLOCK_AFTER_FAILURES = 2;
+  const DOMAIN_BLOCK_MS = 24 * 60 * 60 * 1000;
+  const DOMAIN_LONG_BLOCK_MS = 72 * 60 * 60 * 1000;
   const ACTIVE_POLL_MS = 7 * 1000;    // ~8.6 consultas/min, por debajo del límite gratuito de 10/min
   const HIDDEN_POLL_MS = 90 * 1000;
   const WAIT_POLL_MS = 7 * 1000;
@@ -625,6 +659,10 @@
   let waitTimer = null;
   let waitCountdownTimer = null;
   let waitUntil = 0;
+  let waitHealthDomain = '';
+  let waitHealthProvider = '';
+  let waitSawNewMessage = false;
+  let waitHealthRecordedSuccess = false;
   let currentOtp = '';
   let history = [];
   let otpCache = {};
@@ -658,7 +696,7 @@
     modal:$('modal'), closeModalBtn:$('closeModalBtn'),
     modalSubject:$('modalSubject'), modalMeta:$('modalMeta'), modalBody:$('modalBody'),
     otpBox:$('otpBox'), otpCode:$('otpCode'), copyOtpBtn:$('copyOtpBtn'),
-    links:$('links'), mailViewTitle:$('mailViewTitle'), mailFrameWrap:$('mailFrameWrap'), mailFrame:$('mailFrame'), domainSelect:$('domainSelect'), reloadDomainsBtn:$('reloadDomainsBtn'), domainNote:$('domainNote'), managerSummary:$('managerSummary'), openSettingsInlineBtn:$('openSettingsInlineBtn'), confirmModal:$('confirmModal'), confirmCancelBtn:$('confirmCancelBtn'), confirmOkBtn:$('confirmOkBtn'), confirmTitle:$('confirmTitle'), confirmText:$('confirmText'), settingsProviderSummary:$('settingsProviderSummary'), workerUrl:$('workerUrl'), saveWorkerUrlBtn:$('saveWorkerUrlBtn'), workerStatus:$('workerStatus'), dropmailToken:$('dropmailToken'), saveDropmailTokenBtn:$('saveDropmailTokenBtn'), compactStatusProvider:$('compactStatusProvider'), compactMailCount:$('compactMailCount'), topOtpBanner:$('topOtpBanner'), topOtpCode:$('topOtpCode'), copyTopOtpBtn:$('copyTopOtpBtn'), footerManagers:$('footerManagers'), toast:$('toast')
+    links:$('links'), mailViewTitle:$('mailViewTitle'), mailFrameWrap:$('mailFrameWrap'), mailFrame:$('mailFrame'), domainSelect:$('domainSelect'), reloadDomainsBtn:$('reloadDomainsBtn'), domainNote:$('domainNote'), managerSummary:$('managerSummary'), openSettingsInlineBtn:$('openSettingsInlineBtn'), confirmModal:$('confirmModal'), confirmCancelBtn:$('confirmCancelBtn'), confirmOkBtn:$('confirmOkBtn'), confirmTitle:$('confirmTitle'), confirmText:$('confirmText'), settingsProviderSummary:$('settingsProviderSummary'), workerUrl:$('workerUrl'), saveWorkerUrlBtn:$('saveWorkerUrlBtn'), workerStatus:$('workerStatus'), dropmailToken:$('dropmailToken'), saveDropmailTokenBtn:$('saveDropmailTokenBtn'), resetDomainHealthBtn:$('resetDomainHealthBtn'), domainHealthList:$('domainHealthList'), domainHealthEmpty:$('domainHealthEmpty'), compactStatusProvider:$('compactStatusProvider'), compactMailCount:$('compactMailCount'), topOtpBanner:$('topOtpBanner'), topOtpCode:$('topOtpCode'), copyTopOtpBtn:$('copyTopOtpBtn'), footerManagers:$('footerManagers'), toast:$('toast')
   };
 
   function save(){
@@ -1219,6 +1257,170 @@
     });
   }
 
+  function normalizeDomainKey(domain){
+    return String(domain || '').trim().replace(/^@/,'').toLowerCase();
+  }
+
+  function loadDomainHealth(){
+    try{
+      const data = JSON.parse(localStorage.getItem(DOMAIN_HEALTH_KEY) || '{}');
+      return data && typeof data === 'object' && !Array.isArray(data) ? data : {};
+    }catch{
+      return {};
+    }
+  }
+
+  function saveDomainHealth(data){
+    localStorage.setItem(DOMAIN_HEALTH_KEY, JSON.stringify(data || {}));
+  }
+
+  function getDomainHealth(domain){
+    const key = normalizeDomainKey(domain);
+    const all = loadDomainHealth();
+    const item = all[key] || {};
+    return {
+      domain:key,
+      provider:item.provider || '',
+      failures:Number(item.failures || 0),
+      consecutiveFailures:Number(item.consecutiveFailures || 0),
+      successes:Number(item.successes || 0),
+      lastFailure:Number(item.lastFailure || 0),
+      lastSuccess:Number(item.lastSuccess || 0),
+      blockedUntil:Number(item.blockedUntil || 0)
+    };
+  }
+
+  function isDomainAutoBlocked(domain){
+    const health = getDomainHealth(domain);
+    return health.blockedUntil > Date.now();
+  }
+
+  function domainHealthSuffix(domain){
+    const health = getDomainHealth(domain);
+    if (health.blockedUntil > Date.now()) return ' ⚠️ pausado';
+    if (health.consecutiveFailures > 0) return ' ⚠️ observación';
+    return '';
+  }
+
+  function recordDomainFailure(domain, provider=''){
+    const key = normalizeDomainKey(domain);
+    if (!key || key === '__random__') return;
+
+    const all = loadDomainHealth();
+    const prev = all[key] || {};
+    const consecutiveFailures = Number(prev.consecutiveFailures || 0) + 1;
+    const failures = Number(prev.failures || 0) + 1;
+
+    let blockedUntil = Number(prev.blockedUntil || 0);
+    if (consecutiveFailures >= DOMAIN_BLOCK_AFTER_FAILURES){
+      blockedUntil = Date.now() + (
+        consecutiveFailures >= 3 ? DOMAIN_LONG_BLOCK_MS : DOMAIN_BLOCK_MS
+      );
+    }
+
+    all[key] = {
+      ...prev,
+      provider:provider || prev.provider || '',
+      failures,
+      consecutiveFailures,
+      successes:Number(prev.successes || 0),
+      lastFailure:Date.now(),
+      blockedUntil
+    };
+
+    saveDomainHealth(all);
+    renderDomainHealth();
+    populateDomainSelect();
+
+    if (blockedUntil > Date.now()){
+      toast(`⚠️ @${key} pausado en Automático por baja entregabilidad`);
+    }else{
+      toast(`⚠️ @${key} quedó en observación`);
+    }
+  }
+
+  function recordDomainSuccess(domain, provider=''){
+    const key = normalizeDomainKey(domain);
+    if (!key || key === '__random__') return;
+
+    const all = loadDomainHealth();
+    const prev = all[key] || {};
+
+    all[key] = {
+      ...prev,
+      provider:provider || prev.provider || '',
+      failures:Number(prev.failures || 0),
+      consecutiveFailures:0,
+      successes:Number(prev.successes || 0) + 1,
+      lastSuccess:Date.now(),
+      blockedUntil:0
+    };
+
+    saveDomainHealth(all);
+    renderDomainHealth();
+    populateDomainSelect();
+  }
+
+  function resetDomainHealth(){
+    localStorage.removeItem(DOMAIN_HEALTH_KEY);
+    renderDomainHealth();
+    populateDomainSelect();
+    toast('Historial de entregabilidad restablecido');
+  }
+
+  function formatRemaining(ms){
+    if (ms <= 0) return '';
+    const hours = Math.ceil(ms / 3600000);
+    if (hours < 24) return `${hours} h`;
+    return `${Math.ceil(hours / 24)} d`;
+  }
+
+  function renderDomainHealth(){
+    if (!el.domainHealthList || !el.domainHealthEmpty) return;
+
+    const all = loadDomainHealth();
+    const items = Object.values(all)
+      .map(item => ({
+        ...item,
+        domain:normalizeDomainKey(item.domain || '')
+      }))
+      .filter(() => false);
+
+    // Las claves son los dominios; normalizamos desde Object.entries.
+    const entries = Object.entries(all)
+      .map(([domain,item]) => ({
+        domain:normalizeDomainKey(domain),
+        provider:item?.provider || '',
+        consecutiveFailures:Number(item?.consecutiveFailures || 0),
+        failures:Number(item?.failures || 0),
+        blockedUntil:Number(item?.blockedUntil || 0)
+      }))
+      .filter(item => item.domain && (item.consecutiveFailures > 0 || item.blockedUntil > Date.now()))
+      .sort((a,b) => (b.blockedUntil || 0) - (a.blockedUntil || 0));
+
+    el.domainHealthList.innerHTML = '';
+    el.domainHealthEmpty.hidden = entries.length > 0;
+
+    entries.forEach(item => {
+      const chip = document.createElement('span');
+      const blocked = item.blockedUntil > Date.now();
+      chip.className = `settings-chip ${blocked ? 'bad' : 'warn'}`;
+      chip.textContent = blocked
+        ? `@${item.domain} · pausado ${formatRemaining(item.blockedUntil - Date.now())}`
+        : `@${item.domain} · observación`;
+      chip.title = `${item.provider || 'gestor'} · ${item.failures} fallo(s)`;
+      el.domainHealthList.appendChild(chip);
+    });
+  }
+
+  function autoEligibleDomainPool(){
+    const full = availableDomainPool();
+    const healthy = full.filter(item => !isDomainAutoBlocked(item.domain));
+    // Nunca dejamos Automático inutilizable: si todo quedó pausado,
+    // se usa el pool completo y se deja que el usuario decida.
+    return healthy.length ? healthy : full;
+  }
+
   function domainOption(value, label){
     const option = document.createElement('option');
     option.value = value;
@@ -1277,11 +1479,11 @@
     el.domainSelect.innerHTML = '';
 
     if (domainPassesTld('mail123.fr')){
-      el.domainSelect.appendChild(domainOption('mail123:mail123.fr', '@mail123.fr ⭐ Recomendado'));
+      el.domainSelect.appendChild(domainOption('mail123:mail123.fr', `@mail123.fr ⭐ Recomendado${domainHealthSuffix('mail123.fr')}`));
     }
     if ((mail123Domains.includes('mail123.site') || MAIL123_FALLBACK_DOMAINS.includes('mail123.site')) &&
         domainPassesTld('mail123.site')){
-      el.domainSelect.appendChild(domainOption('mail123:mail123.site', '@mail123.site ⭐ .site'));
+      el.domainSelect.appendChild(domainOption('mail123:mail123.site', `@mail123.site ⭐ .site${domainHealthSuffix('mail123.site')}`));
     }
 
     el.domainSelect.appendChild(domainOption(
@@ -1335,7 +1537,10 @@
       group.domains.forEach(item => {
         const domain = typeof item === 'string' ? item : item.name;
         optgroup.appendChild(
-          domainOption(`${group.provider}:${domain}`, `@${domain} · ${group.label}`)
+          domainOption(
+            `${group.provider}:${domain}`,
+            `@${domain} · ${group.label}${domainHealthSuffix(domain)}`
+          )
         );
       });
       el.domainSelect.appendChild(optgroup);
@@ -1390,10 +1595,13 @@
     }
 
     if (value === 'auto'){
+      const eligible = autoEligibleDomainPool();
+      const paused = Math.max(0, pool.length - eligible.length);
+
       el.domainNote.textContent =
         activeTldFilter === 'all'
-          ? `Automático alterna entre ${pool.length} dominios disponibles y procura no repetir gestor ni dominio consecutivamente.`
-          : `Automático elegirá entre ${pool.length} dominio${pool.length === 1 ? '' : 's'} ${activeTldFilter}, procurando no repetir cuando haya alternativas.`;
+          ? `Automático usa ${eligible.length} dominios con mejor historial${paused ? ` y evita ${paused} temporalmente por baja entregabilidad` : ''}.`
+          : `Automático elegirá entre ${eligible.length} dominio${eligible.length === 1 ? '' : 's'} ${activeTldFilter}${paused ? `; ${paused} está pausado` : ''}.`;
       return;
     }
 
@@ -1422,6 +1630,13 @@
         '@mail123.fr queda como favorito porque ya te ha funcionado con Spotify.';
     }else{
       el.domainNote.textContent = `Mail123: @${domain}.`;
+    }
+
+    const health = getDomainHealth(domain);
+    if (health.blockedUntil > Date.now()){
+      el.domainNote.textContent += ` ⚠️ Baja entregabilidad: no se usará en Automático durante ${formatRemaining(health.blockedUntil - Date.now())}.`;
+    }else if (health.consecutiveFailures > 0){
+      el.domainNote.textContent += ' ⚠️ Este dominio está en observación por una espera sin mensajes.';
     }
   }
 
@@ -1624,7 +1839,7 @@
     }
 
     if (selection === 'auto'){
-      const pool = availableDomainPool();
+      const pool = autoEligibleDomainPool();
       if (!pool.length) throw new Error('No hay dominios disponibles con este filtro.');
 
       const lastDomain = String(localStorage.getItem(AUTO_LAST_DOMAIN_KEY) || '').toLowerCase();
@@ -2174,13 +2389,21 @@
       const hadPreviousSnapshot = lastMessageIds.size > 0;
       lastMessageIds = currentIds;
 
+      if (waitUntil > Date.now() && newIds.length > 0){
+        waitSawNewMessage = true;
+        if (!waitHealthRecordedSuccess && waitHealthDomain){
+          waitHealthRecordedSuccess = true;
+          recordDomainSuccess(waitHealthDomain, waitHealthProvider);
+        }
+      }
+
       renderMessages(messages, hadPreviousSnapshot ? new Set(newIds) : new Set());
       render();
       rememberAddress(typedAddress);
 
       const otpMessage = messages.find(m => m.__otp && (!hadPreviousSnapshot || newIds.includes(messageIdOf(m))));
       if (otpMessage && waitUntil > Date.now()){
-        stopWaitMode();
+        stopWaitMode('success');
         const otp = otpMessage.__otp;
         toast(`Código recibido: ${otp}`);
         try{ navigator.vibrate?.([180,80,180]); }catch{}
@@ -2914,10 +3137,15 @@
     }
 
     if (waitUntil > Date.now()){
-      stopWaitMode();
+      stopWaitMode('manual');
       toast('Espera automática detenida');
       return;
     }
+
+    waitHealthDomain = normalizeDomainKey(box.domain || box.address.split('@')[1] || '');
+    waitHealthProvider = box.provider || inferProviderFromAddress(box.address);
+    waitSawNewMessage = false;
+    waitHealthRecordedSuccess = false;
 
     waitUntil = Date.now() + WAIT_DURATION_MS;
     updateWaitButton();
@@ -2930,7 +3158,7 @@
     waitTimer = setInterval(() => refresh(false), WAIT_POLL_MS);
     waitCountdownTimer = setInterval(() => {
       if (waitUntil <= Date.now()){
-        stopWaitMode();
+        stopWaitMode('timeout');
         toast('Terminó la espera automática');
       }else{
         updateWaitButton();
@@ -2938,13 +3166,31 @@
     }, 1000);
   }
 
-  function stopWaitMode(){
+  function stopWaitMode(reason='manual'){
+    const domain = waitHealthDomain;
+    const provider = waitHealthProvider;
+    const sawMessage = waitSawNewMessage;
+    const recordedSuccess = waitHealthRecordedSuccess;
+
     if (waitTimer) clearInterval(waitTimer);
     if (waitCountdownTimer) clearInterval(waitCountdownTimer);
+
     waitTimer = null;
     waitCountdownTimer = null;
     waitUntil = 0;
+
+    waitHealthDomain = '';
+    waitHealthProvider = '';
+    waitSawNewMessage = false;
+    waitHealthRecordedSuccess = false;
+
     updateWaitButton();
+
+    if (reason === 'timeout' && domain && !sawMessage){
+      recordDomainFailure(domain, provider);
+    }else if (reason === 'success' && domain && !recordedSuccess){
+      recordDomainSuccess(domain, provider);
+    }
   }
 
   function currentPollInterval(){
@@ -3027,6 +3273,16 @@
   function closeSettings(){
     el.settingsModal.classList.remove('show');
   }
+
+  el.resetDomainHealthBtn.addEventListener('click', async () => {
+    const accepted = await pageConfirm({
+      title:'¿Restablecer entregabilidad?',
+      text:'Se borrarán las observaciones y pausas automáticas de todos los dominios.',
+      confirmLabel:'Restablecer',
+      cancelLabel:'Cancelar'
+    });
+    if (accepted) resetDomainHealth();
+  });
 
   el.settingsBtn.addEventListener('click', openSettings);
   el.openSettingsInlineBtn.addEventListener('click', openSettings);
@@ -3151,6 +3407,7 @@
   updateOnlineState();
   renderInstallState();
   el.appVersionLabel.textContent = `v${APP_VERSION}`;
+  renderDomainHealth();
 
   clearLegacyCaches()
     .finally(() => registerServiceWorker());
