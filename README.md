@@ -1,4 +1,4 @@
-# Correo Temporal Mini v32.1 — PWA
+# Correo Temporal Mini v32.2 — PWA
 
 Esta versión está preparada para usarse e instalarse tanto en PC como en celular.
 
@@ -447,3 +447,12 @@ MailSlurp mantiene su espera directa sin polling.
 - El Worker API v26 ahora reconoce `qdn` además de `domain`, `name` y `value`.
 - El diagnóstico conserva `responseType`, `arrayLength` y muestra una muestra sanitizada.
 - No requiere nuevas claves ni cambios en Cloudflare Variables and Secrets.
+
+
+## v32.2 — Corrección visual de Configuración
+
+- Corrige la estructura HTML del modal de Configuración.
+- MailSlurp, Entregabilidad automática y DropMail vuelven a quedar dentro de la misma tarjeta/modal.
+- El modal usa un único panel centrado con scroll vertical interno.
+- No cambia proveedores, API keys, Cloudflare Worker ni lógica de correo.
+- Solo requiere actualizar `index.html`, `sw.js` y `README.md` en GitHub Pages.
