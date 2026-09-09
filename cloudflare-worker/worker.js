@@ -917,7 +917,7 @@ function normalizeInboxesDomains(data) {
   return [...new Set(raw
     .map(item => {
       if (typeof item === "string") return item;
-      return item?.domain || item?.name || item?.value || "";
+      return item?.qdn || item?.domain || item?.name || item?.value || "";
     })
     .map(domain => String(domain || "").trim().replace(/^@/, "").toLowerCase())
     .filter(domain => /^[a-z0-9.-]+\.[a-z]{2,}$/i.test(domain))
@@ -1008,6 +1008,44 @@ async function inboxesMessage(env, id) {
   return {message:{...mapped, id:mapped.id || cleanId}};
 }
 
+function diagnosticResponseType(value) {
+  if (Array.isArray(value)) return "array";
+  if (value === null) return "null";
+  return typeof value;
+}
+
+function sanitizeDiagnosticValue(value, depth = 0, sensitiveValues = []) {
+  if (depth > 3) return "[MAX_DEPTH]";
+
+  if (Array.isArray(value)) {
+    return value.slice(0, 3).map(item => sanitizeDiagnosticValue(item, depth + 1, sensitiveValues));
+  }
+
+  if (value && typeof value === "object") {
+    const out = {};
+    Object.entries(value).slice(0, 12).forEach(([key, item]) => {
+      if (/api[-_]?key|apikey|token|secret|password|authorization|credential/i.test(key)) {
+        out[key] = "[REDACTED]";
+      } else {
+        out[key] = sanitizeDiagnosticValue(item, depth + 1, sensitiveValues);
+      }
+    });
+    return out;
+  }
+
+  if (typeof value === "string") {
+    let safe = value;
+    sensitiveValues
+      .filter(secret => typeof secret === "string" && secret.length >= 8)
+      .forEach(secret => {
+        safe = safe.split(secret).join("[REDACTED]");
+      });
+    return safe.length > 160 ? `${safe.slice(0, 160)}…` : safe;
+  }
+
+  return value;
+}
+
 async function diagnoseInboxes(env) {
   if (!env.INBOXES_RAPIDAPI_KEY) {
     return {
@@ -1021,15 +1059,20 @@ async function diagnoseInboxes(env) {
   }
 
   try {
-    const domains = normalizeInboxesDomains(
-      await inboxesRequest(env, "/domains")
-    );
+    const rawResponse = await inboxesRequest(env, "/domains");
+    const domains = normalizeInboxesDomains(rawResponse);
     return {
       ok:true,
       configured:true,
       http:200,
       domains:domains.length,
-      host:inboxesHost(env)
+      host:inboxesHost(env),
+      responseType:diagnosticResponseType(rawResponse),
+      topLevelKeys:(rawResponse && typeof rawResponse === "object" && !Array.isArray(rawResponse))
+        ? Object.keys(rawResponse).slice(0, 20)
+        : [],
+      arrayLength:Array.isArray(rawResponse) ? rawResponse.length : null,
+      sample:sanitizeDiagnosticValue(rawResponse, 0, [env.INBOXES_RAPIDAPI_KEY])
     };
   } catch (err) {
     return {
@@ -1260,7 +1303,7 @@ export default {
       if (url.pathname === "/health") {
         return json({
           ok:true,
-          service:"Correo Temporal API v24",
+          service:"Correo Temporal API v26",
           capabilities:{
             mailnesia:false,
             guerrilla:false,

@@ -3,7 +3,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
 
-const root = path.resolve('/mnt/data/v32work');
+const root = path.resolve('/mnt/data/v32_1work');
 const index = fs.readFileSync(path.join(root, 'index.html'), 'utf8');
 const workerSrc = path.join(root, 'cloudflare-worker', 'worker.js');
 const workerMjs = path.join(root, 'tests', '_worker-v32-under-test.mjs');
@@ -31,7 +31,7 @@ function section(source, startText, endText) {
 }
 
 function testFrontendProviderSet() {
-  assert.match(index, /const APP_VERSION = '32\.0'/, 'frontend version should be 32.0');
+  assert.match(index, /const APP_VERSION = '32\.1'/, 'frontend version should be 32.0');
   const pool = section(index, 'function availableDomainPool()', 'function activeProviderItems()');
   assert.match(pool, /provider:'mailsac'/, 'Mailsac must be in new-mail pool');
   assert.match(pool, /provider:'inboxes'/, 'Inboxes must be in new-mail pool');
@@ -53,7 +53,7 @@ async function testHealthAndDomains() {
     if (u === 'https://inboxes-com.p.rapidapi.com/domains') {
       assert.equal(options.headers['X-RapidAPI-Key'], 'rapid-secret');
       assert.equal(options.headers['X-RapidAPI-Host'], 'inboxes-com.p.rapidapi.com');
-      return jsonResponse(['replyloop.com', {domain:'inboxkitten.com'}]);
+      return jsonResponse([{qdn:'guysmail.com'}, {qdn:'chapsmail.com'}, {qdn:'blondmail.com'}]);
     }
     if (u.startsWith('https://api.duckmail.sbs/domains')) {
       return jsonResponse({'hydra:member':[{domain:'duckmail.sbs',isVerified:true}]});
@@ -69,7 +69,7 @@ async function testHealthAndDomains() {
 
   const healthRes = await worker.fetch(new Request('https://worker.test/health'), env);
   const health = await healthRes.json();
-  assert.equal(health.service, 'Correo Temporal API v24');
+  assert.equal(health.service, 'Correo Temporal API v26');
   assert.equal(health.capabilities.mailsac, true);
   assert.equal(health.capabilities.inboxes, true);
   assert.equal(health.capabilities.tempagency, false);
@@ -79,7 +79,7 @@ async function testHealthAndDomains() {
   const domainsRes = await worker.fetch(new Request('https://worker.test/domains'), env);
   const domains = await domainsRes.json();
   assert.deepEqual(domains.mailsac, ['mailsac.com']);
-  assert.deepEqual(domains.inboxes, ['replyloop.com', 'inboxkitten.com']);
+  assert.deepEqual(domains.inboxes, ['guysmail.com', 'chapsmail.com', 'blondmail.com']);
   assert.equal('tempagency' in domains, false);
   assert.equal('guerrilla' in domains, false);
   assert.equal('freecustom' in domains, false);
@@ -170,7 +170,7 @@ async function testDiagnosticsNoSecretLeak() {
   globalThis.fetch = async (url, options={}) => {
     const u = String(url);
     if (u === 'https://mailsac.com/api/me') return jsonResponse({_id:'acct'});
-    if (u === 'https://inboxes-com.p.rapidapi.com/domains') return jsonResponse(['replyloop.com']);
+    if (u === 'https://inboxes-com.p.rapidapi.com/domains') return jsonResponse([{qdn:'guysmail.com'}]);
     if (u.startsWith('https://api.duckmail.sbs/domains')) return jsonResponse({'hydra:member':[{domain:'duckmail.sbs',isVerified:true}]});
     throw new Error('Unexpected diagnostic URL: ' + u);
   };

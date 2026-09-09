@@ -1,4 +1,4 @@
-# Correo Temporal Mini v32 — PWA
+# Correo Temporal Mini v32.1 — PWA
 
 Esta versión está preparada para usarse e instalarse tanto en PC como en celular.
 
@@ -440,3 +440,10 @@ El Worker pasa a `Correo Temporal API v24`.
 Mailsac e Inboxes no hacen polling automático en segundo plano. La interfaz muestra `Manual · ahorra cuota`.
 Al pulsar `Esperar código`, se revisan cada 30 segundos durante un máximo de 5 minutos.
 MailSlurp mantiene su espera directa sin polling.
+
+
+## v32.1 — Corrección Inboxes.com
+- Inboxes.com devuelve los dominios en objetos con la propiedad `qdn` (por ejemplo `{"qdn":"guysmail.com"}`).
+- El Worker API v26 ahora reconoce `qdn` además de `domain`, `name` y `value`.
+- El diagnóstico conserva `responseType`, `arrayLength` y muestra una muestra sanitizada.
+- No requiere nuevas claves ni cambios en Cloudflare Variables and Secrets.

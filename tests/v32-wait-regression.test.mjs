@@ -3,7 +3,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
 
-const root = path.resolve('/mnt/data/v32work');
+const root = path.resolve('/mnt/data/v32_1work');
 const index = fs.readFileSync(path.join(root, 'index.html'), 'utf8');
 const workerSrc = path.join(root, 'cloudflare-worker', 'worker.js');
 const workerMjs = path.join(root, 'tests', '_worker-under-test.mjs');
