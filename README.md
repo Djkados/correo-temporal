@@ -1,4 +1,4 @@
-# Correo Temporal Mini v32.5 — PWA
+# Correo Temporal Mini v32.6 — PWA
 
 Esta versión está preparada para usarse e instalarse tanto en PC como en celular.
 
@@ -483,5 +483,14 @@ MailSlurp mantiene su espera directa sin polling.
 - Los filtros `.net`, `.us`, `.cloud`, `.shop`, `.pro` y `.site` también consideran los dominios de MailSlurp.
 - MailSlurp sigue fuera de `Automático`; permanece como proveedor especial de larga duración.
 - Configuración y resumen muestran el número real de dominios MailSlurp disponibles.
-- Worker: **Correo Temporal API v28**.
+- Worker: **Correo Temporal API v29**.
 - Frontend: **v32.5**.
+
+
+## Cambio v32.6 — dominios MailSlurp realmente utilizables
+- Corrige la fuente de dominios de MailSlurp: ahora usa `/domains/available-domains` en lugar de `/domains/mailslurp-domains`.
+- El contador muestra dominios utilizables por la cuenta para crear bandejas, no el catálogo general de MailSlurp.
+- Si hay más de un dominio utilizable, `Nuevo correo` excluye el dominio anterior.
+- El Worker verifica el dominio real devuelto por MailSlurp; si MailSlurp sustituye el dominio solicitado, devuelve un error claro en vez de afirmar que cambió.
+- Worker: **Correo Temporal API v29**.
+- Frontend: **v32.6**.

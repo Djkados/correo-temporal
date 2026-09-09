@@ -580,7 +580,7 @@
       <div>
         <div class="eyebrow">Configuración</div>
         <h3 id="settingsTitle">Gestores de correo</h3>
-        <div class="standalone-note">Versión <b id="appVersionLabel">v32.5</b></div>
+        <div class="standalone-note">Versión <b id="appVersionLabel">v32.6</b></div>
       </div>
       <button id="closeSettingsBtn" class="icon-btn" type="button">✕</button>
     </div>
@@ -683,7 +683,7 @@
   const DROPMAIL_TOKEN_KEY = 'correo_temporal_dropmail_token_v1';
   const WORKER_URL_KEY = 'correo_temporal_worker_url_v1';
   const DEFAULT_WORKER_URL = 'https://correo-temp-api.djkados11.workers.dev';
-  const APP_VERSION = '32.5';
+  const APP_VERSION = '32.6';
   const STORAGE_KEY = 'correo_temporal_mail123_v2';
   const HISTORY_KEY = 'correo_temporal_history_v2';
   const LEGACY_HISTORY_KEY = 'correo_temporal_history_v1';
@@ -1289,7 +1289,7 @@
       }
 
       if (mailSlurpReady && !mailSlurpDomainsReady){
-        el.workerStatus.textContent += ' · actualiza Worker v28';
+        el.workerStatus.textContent += ' · actualiza Worker v29';
         el.workerStatus.className = 'worker-status bad';
       }
 
