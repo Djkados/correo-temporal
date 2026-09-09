@@ -1,4 +1,4 @@
-# Correo Temporal Mini v32.8 — PWA
+# Correo Temporal Mini v32.9 — PWA
 
 Esta versión está preparada para usarse e instalarse tanto en PC como en celular.
 
@@ -507,7 +507,7 @@ MailSlurp mantiene su espera directa sin polling.
 - Worker: **Correo Temporal API v30**.
 
 
-## Cambio v32.8 — duración real de reutilización
+## Cambio v32.9 — duración real de reutilización
 - El selector muestra la **reutilización de la misma dirección**, separada de la retención de mensajes.
 - Cuando un proveedor no publica una garantía, aparece **⚠️ No garantizado** en vez de inventar días.
 - DuckMail muestra 3 días porque la integración crea cuentas con esa vigencia.
@@ -520,3 +520,12 @@ MailSlurp mantiene su espera directa sin polling.
   - `expiresAt` con fecha → **Rotativo**, mostrando el tiempo restante.
 - La app guarda `restoreKey` de DropMail y puede restaurar la misma dirección después de que expire la sesión, siempre que el dominio siga disponible.
 - La bandeja activa muestra una línea propia con su política de reutilización.
+
+
+## v32.9 — Bandejas importantes
+- Agrega ⭐ Guardar bandeja importante para conservar direcciones de larga reutilización fuera del límite de los últimos 10 correos.
+- Las importantes se guardan por separado en localStorage y no se recortan a 10.
+- Se conserva el snapshot completo del proveedor, incluyendo `restoreKey`, `inboxId`, `sessionId`, tokens y fechas necesarias para reabrir la misma dirección.
+- Una bandeja importante puede abrirse o quitarse desde su sección dedicada.
+- Si escribes manualmente una dirección importante y pulsas Actualizar, la app puede recuperar sus credenciales guardadas aunque ya no esté en Correos recientes.
+- Cuando cambian credenciales de una bandeja importante (por ejemplo restoreKey de DropMail), la copia guardada se sincroniza automáticamente.

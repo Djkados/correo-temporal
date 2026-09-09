@@ -120,6 +120,17 @@
       cursor:pointer
     }
     .recent-chip.current{border-color:#4b79b9;background:rgba(93,169,255,.10);color:#fff}
+    .important-save-btn{margin-top:8px;width:100%;min-height:40px;border-radius:12px;font-size:12px}
+    .important-save-btn.saved{border-color:rgba(255,190,70,.38);background:rgba(255,190,70,.09);color:#ffe0a3}
+    .important-list{display:grid;gap:8px}
+    .important-item{border:1px solid rgba(255,190,70,.24);background:rgba(255,190,70,.045);border-radius:13px;padding:10px}
+    .important-item.current{border-color:#4b79b9;background:rgba(93,169,255,.08)}
+    .important-main{display:flex;align-items:flex-start;justify-content:space-between;gap:10px;flex-wrap:wrap}
+    .important-address{font-size:12px;font-weight:850;overflow-wrap:anywhere;color:#fff}
+    .important-meta{margin-top:4px;color:var(--muted);font-size:10.5px;line-height:1.4}
+    .important-actions{display:flex;gap:7px;flex-wrap:wrap}
+    .important-actions button{min-height:34px;border-radius:10px;padding:0 10px;font-size:11px}
+
     .otp-preview{
       display:flex!important;align-items:center;justify-content:space-between;gap:8px;
       margin-top:10px;border-radius:12px;padding:8px 9px;background:rgba(70,216,137,.10);
@@ -490,6 +501,7 @@
     <div id="mailboxReuseInfo" class="reuse-info">
       ♻️ Reutilización de esta bandeja: pendiente de confirmar.
     </div>
+    <button id="importantMailboxBtn" class="btn ghost important-save-btn" type="button">☆ Guardar bandeja importante</button>
 
     <div id="topOtpBanner" class="otp-banner">
       <div>
@@ -512,6 +524,16 @@
       <button id="refreshBtn" class="btn primary">↻ Actualizar</button>
       <button id="newBtn" class="btn ghost">＋ Nuevo correo</button>
       <button id="waitBtn" class="btn ghost wait-btn">⚡ Esperar código</button>
+    </div>
+
+    <div id="importantWrap" class="recent-collapsible" hidden>
+      <button id="importantToggleBtn" class="recent-toggle" type="button">
+        <span>⭐ Bandejas importantes <small id="importantCount">(0)</small></span>
+        <span id="importantToggleIcon">Ver ▾</span>
+      </button>
+      <div id="importantPanel" class="recent-panel">
+        <div id="importantList" class="important-list"></div>
+      </div>
     </div>
 
     <div id="recentWrap" class="recent-collapsible" hidden>
@@ -692,9 +714,10 @@
     const DROPMAIL_TOKEN_KEY = 'correo_temporal_dropmail_token_v1';
   const WORKER_URL_KEY = 'correo_temporal_worker_url_v1';
   const DEFAULT_WORKER_URL = 'https://correo-temp-api.djkados11.workers.dev';
-  const APP_VERSION = '32.8';
+  const APP_VERSION = '32.9';
   const STORAGE_KEY = 'correo_temporal_mail123_v2';
   const HISTORY_KEY = 'correo_temporal_history_v2';
+  const IMPORTANT_MAILBOXES_KEY = 'correo_temporal_important_mailboxes_v1';
   const LEGACY_HISTORY_KEY = 'correo_temporal_history_v1';
   const OTP_CACHE_KEY = 'correo_temporal_otp_cache_v1';
   const DOMAIN_PREF_KEY = 'correo_temporal_domain_pref_v1';
@@ -725,6 +748,7 @@
   let waitHealthRecordedSuccess = false;
   let currentOtp = '';
   let history = [];
+  let importantMailboxes = [];
   let otpCache = {};
   let lastMessageIds = new Set();
   let refreshInFlight = false;
@@ -759,7 +783,7 @@
     noMailbox:$('noMailbox'), mailbox:$('mailbox'), inboxWrap:$('inboxWrap'), offlineBanner:$('offlineBanner'), installBtn:$('installBtn'), installHint:$('installHint'), settingsBtn:$('settingsBtn'), settingsModal:$('settingsModal'), closeSettingsBtn:$('closeSettingsBtn'), appVersionLabel:$('appVersionLabel'),
     generateBtn:$('generateBtn'), emailAddress:$('emailAddress'),
     copyEmailBtn:$('copyEmailBtn'), mailCount:$('mailCount'), livePill:$('livePill'), providerBadge:$('providerBadge'),
-    refreshBtn:$('refreshBtn'), newBtn:$('newBtn'), waitBtn:$('waitBtn'), recentWrap:$('recentWrap'), recentPanel:$('recentPanel'), recentToggleBtn:$('recentToggleBtn'), recentToggleIcon:$('recentToggleIcon'), recentList:$('recentList'), recentCount:$('recentCount'), recentSearch:$('recentSearch'), recentPrevBtn:$('recentPrevBtn'), recentNextBtn:$('recentNextBtn'), recentEmpty:$('recentEmpty'),
+    refreshBtn:$('refreshBtn'), newBtn:$('newBtn'), waitBtn:$('waitBtn'), importantMailboxBtn:$('importantMailboxBtn'), importantWrap:$('importantWrap'), importantPanel:$('importantPanel'), importantToggleBtn:$('importantToggleBtn'), importantToggleIcon:$('importantToggleIcon'), importantList:$('importantList'), importantCount:$('importantCount'), recentWrap:$('recentWrap'), recentPanel:$('recentPanel'), recentToggleBtn:$('recentToggleBtn'), recentToggleIcon:$('recentToggleIcon'), recentList:$('recentList'), recentCount:$('recentCount'), recentSearch:$('recentSearch'), recentPrevBtn:$('recentPrevBtn'), recentNextBtn:$('recentNextBtn'), recentEmpty:$('recentEmpty'),
     emptyInbox:$('emptyInbox'), messageList:$('messageList'), lastUpdate:$('lastUpdate'),
     modal:$('modal'), closeModalBtn:$('closeModalBtn'),
     modalSubject:$('modalSubject'), modalMeta:$('modalMeta'), modalBody:$('modalBody'),
@@ -795,6 +819,7 @@
       sessionId: source.sessionId || '',
       expiresAt: source.expiresAt || '',
       dropmailDomainId: source.dropmailDomainId || '',
+      dropmailDomainExpiresAt: source.dropmailDomainExpiresAt ?? '',
       dropmailRestoreKey: source.dropmailRestoreKey || '',
       sidToken: source.sidToken || '',
       inboxToken: source.inboxToken || '',
@@ -802,6 +827,170 @@
       emailId: source.emailId || '',
       tempmailMessages: Array.isArray(source.tempmailMessages) ? source.tempmailMessages : []
     };
+  }
+
+  function loadImportantMailboxes(){
+    try{
+      const raw = JSON.parse(localStorage.getItem(IMPORTANT_MAILBOXES_KEY) || '[]');
+      importantMailboxes = Array.isArray(raw)
+        ? raw.filter(item => isValidEmail(item?.address || ''))
+        : [];
+    }catch{
+      importantMailboxes = [];
+    }
+  }
+
+  function saveImportantMailboxes(){
+    localStorage.setItem(IMPORTANT_MAILBOXES_KEY, JSON.stringify(importantMailboxes));
+  }
+
+  function findImportantBox(address){
+    const a = normalizeEmail(address);
+    const item = importantMailboxes.find(x => normalizeEmail(x?.address) === a);
+    if (!item) return null;
+    return {
+      ...(item.box || {}),
+      address:a,
+      provider:item.box?.provider || inferProviderFromAddress(a),
+      domain:item.box?.domain || a.split('@')[1] || ''
+    };
+  }
+
+  function isImportantAddress(address){
+    const a = normalizeEmail(address);
+    return importantMailboxes.some(item => normalizeEmail(item?.address) === a);
+  }
+
+  function syncImportantMailbox(address){
+    const a = normalizeEmail(address);
+    if (!a || !box?.address || normalizeEmail(box.address) !== a || !isImportantAddress(a)) return;
+    const idx = importantMailboxes.findIndex(item => normalizeEmail(item?.address) === a);
+    if (idx < 0) return;
+    importantMailboxes[idx] = {
+      ...importantMailboxes[idx],
+      address:a,
+      updatedAt:Date.now(),
+      box:safeBoxSnapshot(box)
+    };
+    saveImportantMailboxes();
+    renderImportantMailboxes();
+  }
+
+  async function openStoredMailbox(item){
+    if (!item?.address) return;
+    if (box?.address === item.address){
+      await refresh(true);
+      return;
+    }
+    stopWaitMode();
+    box = {
+      ...(item.box || {}),
+      address:item.address,
+      provider:item.box?.provider || inferProviderFromAddress(item.address),
+      domain:item.box?.domain || item.address.split('@')[1] || '',
+      createdAt:item.box?.createdAt || Date.now()
+    };
+    save();
+    el.emailAddress.value = item.address;
+    render();
+    renderMessages([]);
+    rememberAddress(item.address);
+    lastMessageIds = new Set();
+    await refresh(true);
+  }
+
+  function updateImportantMailboxButton(){
+    if (!el.importantMailboxBtn) return;
+    if (!box?.address){
+      el.importantMailboxBtn.hidden = true;
+      return;
+    }
+    el.importantMailboxBtn.hidden = false;
+    const saved = isImportantAddress(box.address);
+    el.importantMailboxBtn.textContent = saved ? '★ Bandeja importante guardada' : '☆ Guardar bandeja importante';
+    el.importantMailboxBtn.classList.toggle('saved', saved);
+  }
+
+  function toggleImportantMailbox(){
+    if (!box?.address) return;
+    const a = normalizeEmail(box.address);
+    const idx = importantMailboxes.findIndex(item => normalizeEmail(item?.address) === a);
+    if (idx >= 0){
+      importantMailboxes.splice(idx, 1);
+      saveImportantMailboxes();
+      renderImportantMailboxes();
+      updateImportantMailboxButton();
+      toast('Bandeja quitada de importantes');
+      return;
+    }
+    importantMailboxes.unshift({
+      address:a,
+      savedAt:Date.now(),
+      updatedAt:Date.now(),
+      box:safeBoxSnapshot(box)
+    });
+    saveImportantMailboxes();
+    renderImportantMailboxes();
+    updateImportantMailboxButton();
+    toast('⭐ Bandeja guardada como importante');
+  }
+
+  function renderImportantMailboxes(){
+    if (!el.importantWrap || !el.importantList) return;
+    const valid = importantMailboxes.filter(item => isValidEmail(item?.address || ''));
+    el.importantWrap.hidden = valid.length === 0;
+    el.importantCount.textContent = `(${valid.length})`;
+    el.importantList.innerHTML = '';
+
+    valid.forEach(item => {
+      const card = document.createElement('div');
+      card.className = 'important-item' + (box?.address === item.address ? ' current' : '');
+
+      const main = document.createElement('div');
+      main.className = 'important-main';
+
+      const info = document.createElement('div');
+      const address = document.createElement('div');
+      address.className = 'important-address';
+      address.textContent = item.address;
+      const provider = item.box?.provider || inferProviderFromAddress(item.address);
+      const domain = item.box?.domain || item.address.split('@')[1] || '';
+      const policy = reusePolicyFor(provider, domain, {
+        createdAt:item.box?.createdAt || 0,
+        expiresAt:item.box?.expiresAt || '',
+        mailboxKnown:true,
+        restoreKey:item.box?.dropmailRestoreKey || '',
+        domainMetaKnown:provider === 'dropmail',
+        domainExpiresAt:item.box?.dropmailDomainExpiresAt ?? undefined
+      });
+      const meta = document.createElement('div');
+      meta.className = 'important-meta';
+      meta.textContent = `${providerLabel(provider)} · ${policy.short}`;
+      info.append(address, meta);
+
+      const actions = document.createElement('div');
+      actions.className = 'important-actions';
+      const openBtn = document.createElement('button');
+      openBtn.type = 'button';
+      openBtn.className = 'btn ghost';
+      openBtn.textContent = 'Abrir';
+      openBtn.addEventListener('click', () => openStoredMailbox(item));
+      const removeBtn = document.createElement('button');
+      removeBtn.type = 'button';
+      removeBtn.className = 'btn ghost';
+      removeBtn.textContent = 'Quitar';
+      removeBtn.addEventListener('click', () => {
+        importantMailboxes = importantMailboxes.filter(x => normalizeEmail(x?.address) !== normalizeEmail(item.address));
+        saveImportantMailboxes();
+        renderImportantMailboxes();
+        updateImportantMailboxButton();
+        toast('Bandeja quitada de importantes');
+      });
+      actions.append(openBtn, removeBtn);
+      main.append(info, actions);
+      card.appendChild(main);
+      el.importantList.appendChild(card);
+    });
   }
 
   function loadHistory(){
@@ -831,7 +1020,7 @@
   function findHistoryBox(address){
     const a = normalizeEmail(address);
     const item = history.find(x => normalizeEmail(x?.address) === a);
-    if (!item) return null;
+    if (!item) return findImportantBox(a);
     return {
       ...(item.box || {}),
       address:a,
@@ -857,6 +1046,7 @@
     history = history.slice(0,10);
     saveHistory();
     renderHistory();
+    syncImportantMailbox(a);
   }
 
   function loadOtpCache(){
@@ -1122,6 +1312,8 @@
       renderMailboxReuseInfo();
     }
     renderHistory();
+    renderImportantMailboxes();
+    updateImportantMailboxButton();
   }
 
 
@@ -1514,13 +1706,14 @@
     const dropMeta = box.provider === 'dropmail'
       ? (dropMailDomains.find(d => d.name === domain) || null)
       : null;
+    const hasStoredDropExpiry = box.provider === 'dropmail' && Object.prototype.hasOwnProperty.call(box, 'dropmailDomainExpiresAt');
     return reusePolicyFor(box.provider, domain, {
       createdAt:box.createdAt || 0,
       expiresAt:box.expiresAt || '',
       mailboxKnown:true,
       restoreKey:box.dropmailRestoreKey || '',
-      domainMetaKnown:box.provider === 'dropmail' ? !!dropMeta : false,
-      domainExpiresAt:dropMeta ? dropMeta.expiresAt : undefined
+      domainMetaKnown:box.provider === 'dropmail' ? (!!dropMeta || hasStoredDropExpiry) : false,
+      domainExpiresAt:dropMeta ? dropMeta.expiresAt : (hasStoredDropExpiry ? box.dropmailDomainExpiresAt : undefined)
     });
   }
 
@@ -2185,6 +2378,7 @@
       sessionId:session.id,
       expiresAt:session.expiresAt || '',
       dropmailDomainId:item.id,
+      dropmailDomainExpiresAt:item.expiresAt ?? null,
       dropmailRestoreKey:addressNode?.restoreKey || '',
       createdAt:Date.now()
     };
@@ -2444,6 +2638,9 @@
     box.dropmailRestoreKey = restored.restoreKey || box.dropmailRestoreKey;
     box.domain = restored.domain?.name || box.domain || normalizeEmail(box.address).split('@')[1] || '';
     box.dropmailDomainId = restored.domain?.id || box.dropmailDomainId || '';
+    if (restored.domain && Object.prototype.hasOwnProperty.call(restored.domain, 'expiresAt')) {
+      box.dropmailDomainExpiresAt = restored.domain.expiresAt;
+    }
     save();
     rememberAddress(box.address);
     renderMailboxReuseInfo();
@@ -4060,6 +4257,14 @@
     if (e.target === el.settingsModal) closeSettings();
   });
 
+  el.importantMailboxBtn.addEventListener('click', toggleImportantMailbox);
+
+  el.importantToggleBtn.addEventListener('click', () => {
+    const open = !el.importantPanel.classList.contains('show');
+    el.importantPanel.classList.toggle('show', open);
+    el.importantToggleIcon.textContent = open ? 'Ocultar ▴' : 'Ver ▾';
+  });
+
   el.recentToggleBtn.addEventListener('click', () => {
     const open = !el.recentPanel.classList.contains('show');
     el.recentPanel.classList.toggle('show', open);
@@ -4210,6 +4415,7 @@
 
   load();
   loadHistory();
+  loadImportantMailboxes();
   loadOtpCache();
   if (box?.address) rememberAddress(box.address);
   render();
