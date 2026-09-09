@@ -1,4 +1,4 @@
-# Correo Temporal Mini v32.6 — PWA
+# Correo Temporal Mini v32.7 — PWA
 
 Esta versión está preparada para usarse e instalarse tanto en PC como en celular.
 
@@ -494,3 +494,14 @@ MailSlurp mantiene su espera directa sin polling.
 - El Worker verifica el dominio real devuelto por MailSlurp; si MailSlurp sustituye el dominio solicitado, devuelve un error claro en vez de afirmar que cambió.
 - Worker: **Correo Temporal API v29**.
 - Frontend: **v32.6**.
+
+
+## v32.7 — DropMail vía Cloudflare Worker
+- DropMail deja de llamar directamente a `dropmail.me` desde GitHub Pages.
+- Todas las consultas GraphQL de DropMail pasan por el Cloudflare Worker del usuario.
+- El token `af_…` sigue guardándose solo en el navegador y se envía al Worker mediante `X-DropMail-Token`; no se guarda en GitHub ni en Cloudflare Secrets.
+- El Worker API v30 reenvía la consulta a DropMail y devuelve el error real de autenticación/API.
+- El botón **Guardar token** valida inmediatamente la lista de dominios y ya no muestra falsamente “activado · 0 dominios”.
+- CORS del Worker permite `X-DropMail-Token`.
+- Frontend: **v32.7**.
+- Worker: **Correo Temporal API v30**.

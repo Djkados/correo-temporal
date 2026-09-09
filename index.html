@@ -679,11 +679,10 @@
   const MAIL123_API = 'https://mail123.fr/api/v1';
   const MAILTM_API = 'https://api.mail.tm';
   const MAILGW_API = 'https://api.mail.gw';
-  const DROPMAIL_API = 'https://dropmail.me/api/graphql';
-  const DROPMAIL_TOKEN_KEY = 'correo_temporal_dropmail_token_v1';
+    const DROPMAIL_TOKEN_KEY = 'correo_temporal_dropmail_token_v1';
   const WORKER_URL_KEY = 'correo_temporal_worker_url_v1';
   const DEFAULT_WORKER_URL = 'https://correo-temp-api.djkados11.workers.dev';
-  const APP_VERSION = '32.6';
+  const APP_VERSION = '32.7';
   const STORAGE_KEY = 'correo_temporal_mail123_v2';
   const HISTORY_KEY = 'correo_temporal_history_v2';
   const LEGACY_HISTORY_KEY = 'correo_temporal_history_v1';
@@ -1289,7 +1288,7 @@
       }
 
       if (mailSlurpReady && !mailSlurpDomainsReady){
-        el.workerStatus.textContent += ' · actualiza Worker v29';
+        el.workerStatus.textContent += ' · actualiza Worker v30';
         el.workerStatus.className = 'worker-status bad';
       }
 
@@ -1345,8 +1344,9 @@
     const token = getDropmailToken();
     if (!token) throw new Error('DropMail requiere un token gratuito af_…');
 
-    const data = await requestJSON(`${DROPMAIL_API}/${encodeURIComponent(token)}`, {
+    const data = await workerJSON('/dropmail/graphql', {
       method:'POST',
+      headers:{'X-DropMail-Token':token},
       body:JSON.stringify({query})
     });
 
@@ -3915,10 +3915,30 @@
     dropMailDomains = [];
 
     try{
+      if (token){
+        const probe = await dropMailGraphQL('query { domains { id name availableVia expiresAt } }');
+        const validated = normalizeDropMailDomains(probe);
+        if (!validated.length){
+          throw new Error('DropMail respondió, pero no devolvió dominios disponibles para API.');
+        }
+      }
+
       await loadDomains(true);
       await checkWorker();
+
+      if (token && !dropMailDomains.length){
+        throw new Error('DropMail no devolvió dominios. Pulsa Guardar token otra vez para ver el error real.');
+      }
+
       toast(token ? `DropMail activado · ${dropMailDomains.length} dominios` : 'Token de DropMail eliminado');
     }catch(err){
+      dropMailDomains = [];
+      populateDomainSelect();
+      renderProviderSummary();
+      el.dropmailStatusBadge.textContent = 'Error';
+      el.dropmailStatusBadge.className = 'settings-chip bad';
+      el.dropmailStatus.textContent = err?.message || 'No pude activar DropMail';
+      el.dropmailStatus.className = 'longmail-status bad';
       toast(err?.message || 'No pude activar DropMail');
     }
   });

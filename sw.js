@@ -1,4 +1,4 @@
-const CACHE = 'correo-temporal-v32-6';
+const CACHE = 'correo-temporal-v32-7';
 const APP_SHELL = [
   './',
   './index.html',
