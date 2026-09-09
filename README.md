@@ -1,4 +1,4 @@
-# Correo Temporal Mini v27 — PWA
+# Correo Temporal Mini v30 — PWA
 
 Esta versión está preparada para usarse e instalarse tanto en PC como en celular.
 
@@ -288,3 +288,96 @@ Puede volver a habilitarse en el futuro si se usa una API key de pago o un backe
 - Si todos los dominios de un filtro estuvieran pausados, Automático conserva un fallback para no quedar inutilizable.
 - Frontend visible como **v27**.
 - No requiere cambios en el Cloudflare Worker v19.
+
+
+## Cambio v28 — bandeja permanente / 30+ días con MailSlurp
+- Integra **MailSlurp** como proveedor especial para pruebas largas.
+- No entra en Automático: aparece como **📬 MailSlurp · Bandeja 30+ días ⭐**.
+- La app reutiliza siempre la misma bandeja identificada con la etiqueta `correo-temporal-30d`.
+- Se crea sin fecha de expiración cuando el plan lo permite.
+- Si MailSlurp impone una expiración menor a 21 días, la app la rechaza para no usarla en una prueba de 20 días.
+- La API key de MailSlurp se guarda exclusivamente como Secret del Cloudflare Worker.
+- Se admite un segundo Secret `MAILSLURP_GATEWAY_KEY` para proteger el acceso a esa bandeja desde el Worker.
+- En la app solo se guarda esa clave secundaria, nunca la API key real.
+- Worker: **Correo Temporal API v20**.
+- Frontend: **v28**.
+
+### Cloudflare Secrets
+Añadir en Workers & Pages → `correo-temp-api` → Settings / Variables and Secrets:
+
+1. `MAILSLURP_API_KEY`
+   - API key creada en el panel de MailSlurp.
+   - Guardar como **Secret**.
+
+2. `MAILSLURP_GATEWAY_KEY` (recomendado)
+   - Cualquier clave privada larga elegida por ti.
+   - Guardar como **Secret**.
+   - Pegar la misma clave en ⚙️ Configuración → Bandeja 30+ días.
+
+### MailSlurp gratuito
+El plan gratuito actual permite una bandeja permanente y recepción de correos dentro de sus límites mensuales. Si el proveedor cambia estas condiciones, la app mostrará el error real de su API.
+
+
+## Cambio v29 — FreeCustom + Temp-Mail Agency
+
+Mailnesia deja de ser un proveedor activo. Ya no aparece en el selector, no participa en Automático y no cuenta como gestor activo. Las bandejas antiguas de Mailnesia conservan lectura de compatibilidad mientras el proveedor siga respondiendo.
+
+### Nuevos proveedores
+
+#### FreeCustom.Email
+- API oficial protegida por el Cloudflare Worker.
+- El plan gratuito expone los dominios gratuitos de la cuenta (actualmente alrededor de 10 según su documentación).
+- Permite registrar alias cortos elegidos por la app y leer mensajes completos.
+- Requiere `FREECUSTOM_API_KEY` como Secret en Cloudflare.
+- Se recomienda además `FREECUSTOM_GATEWAY_KEY` para que terceros no gasten la cuota de la API a través del Worker público.
+
+#### Temp-Mail Agency
+- API gratuita sin API key propia.
+- La app consulta en vivo los dominios activos del proveedor.
+- Cada nueva bandeja crea su propia sesión UUID y usa alias corto personalizado.
+- La sesión y el ID de correo quedan guardados localmente para volver a leer la bandeja desde Correos recientes.
+
+### Proveedores que quedan
+- Mail123
+- FreeCustom.Email
+- Temp-Mail Agency
+- DuckMail
+- Mail.tm (cuando devuelve dominios)
+- Mail.gw (cuando devuelve dominios)
+- MailSlurp 30+ días
+- DropMail opcional
+
+Guerrilla sigue fuera de Automático. Mailnesia queda solo como compatibilidad de lectura para bandejas antiguas.
+
+### Cloudflare Secrets para FreeCustom
+En Cloudflare → Workers & Pages → `correo-temp-api` → Settings / Variables and Secrets:
+
+1. `FREECUSTOM_API_KEY`
+   - Cree una cuenta gratis en https://www.freecustom.email/
+   - Dashboard → API → genere la API key.
+   - Guárdela como **Secret**. Nunca la ponga en GitHub.
+
+2. `FREECUSTOM_GATEWAY_KEY` (recomendado)
+   - Use una clave privada larga elegida por usted.
+   - Guárdela también como **Secret**.
+   - Pegue la misma clave en ⚙️ Configuración → FreeCustom.Email dentro de la app.
+
+### Worker
+Esta versión requiere **Correo Temporal API v21**.
+
+### Consumo del plan gratuito de FreeCustom
+El plan Free actual limita a 1.000 solicitudes/mes, 1 req/s y 10 bandejas activas. Para no gastar la cuota demasiado rápido, la v29 consulta FreeCustom cada 60 segundos en uso normal y cada 15 segundos cuando pulsas **Esperar código**. Para pruebas largas sigue siendo mejor MailSlurp 30+ días.
+
+
+## Cambio v30 — espera directa de correo
+- MailSlurp 30+ días usa el endpoint oficial `GET /waitForLatestEmail` mediante Cloudflare Worker.
+- Al pulsar **Esperar código** en MailSlurp, la app mantiene una petición abierta y MailSlurp responde cuando llega un correo; ya no consulta cada 7 segundos.
+- La espera se realiza en bloques de hasta 110 segundos y se encadena durante la ventana de 5 minutos del botón.
+- `unreadOnly=true` y `since` evitan devolver mensajes anteriores de la bandeja.
+- Un timeout de MailSlurp (`HTTP 408`) se trata como espera normal y no como error.
+- Si la espera directa falla, la app cae automáticamente a revisión cada 15 segundos.
+- Para proveedores sin endpoint de espera, el polling normal baja de 7 a 30 segundos y **Esperar código** usa 15 segundos.
+- FreeCustom conserva 60 segundos en uso normal por su cuota gratuita.
+- MailSlurp conserva una comprobación normal cada 60 segundos cuando no está en modo Esperar código.
+- Worker: **Correo Temporal API v22**.
+- Frontend: **v30**.

@@ -323,6 +323,18 @@
     .health-help{margin-top:5px;color:var(--muted);font-size:10px;line-height:1.45}
     .health-list{display:flex;flex-wrap:wrap;gap:7px;margin-top:9px}
     .health-empty{margin-top:8px;color:var(--muted);font-size:10.5px}
+    .longmail-box{
+      margin-top:10px;border:1px solid rgba(70,216,137,.24);border-radius:14px;
+      background:rgba(70,216,137,.045);padding:12px
+    }
+    .longmail-title{display:flex;align-items:center;justify-content:space-between;gap:10px}
+    .longmail-title b{font-size:12px}
+    .longmail-status{margin-top:6px;font-size:10.5px;color:var(--muted)}
+    .longmail-status.ok{color:#bff2d3}
+    .longmail-status.bad{color:#ffb0b8}
+    .longmail-row{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:8px;margin-top:9px}
+    @media(max-width:639px){.longmail-row{grid-template-columns:1fr}}
+
 
     @media(max-width:639px){
       .top-tools{gap:6px}
@@ -457,7 +469,7 @@
       <span class="status-dot"></span>
       <span id="compactStatusProvider">Activo · Mail123</span>
       <span class="status-sep">·</span>
-      <span>En vivo 7 s</span>
+      <span id="compactPollText">En vivo 7 s</span>
       <span class="status-sep">·</span>
       <span id="compactMailCount">0 correos</span>
     </div>
@@ -561,7 +573,7 @@
       <div>
         <div class="eyebrow">Configuración</div>
         <h3 id="settingsTitle">Gestores de correo</h3>
-        <div class="standalone-note">Versión <b id="appVersionLabel">v27</b></div>
+        <div class="standalone-note">Versión <b id="appVersionLabel">v30</b></div>
       </div>
       <button id="closeSettingsBtn" class="icon-btn" type="button">✕</button>
     </div>
@@ -570,7 +582,7 @@
 
     <div class="settings-block">
       <details class="worker-config">
-        <summary>☁️ Cloudflare Worker · Mailnesia + DuckMail</summary>
+        <summary>☁️ Cloudflare Worker · FreeCustom + Temp-Mail Agency + DuckMail</summary>
         <div class="worker-inner">
           <div class="worker-row">
             <input id="workerUrl" class="worker-input" type="url" placeholder="https://correo-temp-api.tuusuario.workers.dev" autocomplete="off" spellcheck="false" />
@@ -579,6 +591,46 @@
           <div id="workerStatus" class="worker-status">Sin conectar.</div>
         </div>
       </details>
+    </div>
+
+    <div class="settings-block">
+      <div class="longmail-box">
+        <div class="longmail-title">
+          <b>⚡ FreeCustom.Email · dominios extra</b>
+          <span id="freeCustomStatusBadge" class="settings-chip">Sin configurar</span>
+        </div>
+        <div id="freeCustomStatus" class="longmail-status">
+          Requiere FREECUSTOM_API_KEY en Cloudflare. La API key real nunca se guarda en GitHub.
+        </div>
+        <div class="longmail-row">
+          <input id="freeCustomGatewayKey" class="worker-input" type="password"
+                 placeholder="Clave privada secundaria del Worker" autocomplete="off" />
+          <button id="saveFreeCustomGatewayBtn" class="btn ghost" type="button">Guardar clave</button>
+        </div>
+        <div class="health-help">
+          Recomendado: configura también FREECUSTOM_GATEWAY_KEY como Secret en Cloudflare y pega aquí la misma clave.
+        </div>
+      </div>
+    </div>
+
+    <div class="settings-block">
+      <div class="longmail-box">
+        <div class="longmail-title">
+          <b>📬 Bandeja 30+ días · MailSlurp</b>
+          <span id="mailSlurpStatusBadge" class="settings-chip">Sin configurar</span>
+        </div>
+        <div id="mailSlurpStatus" class="longmail-status">
+          Requiere MAILSLURP_API_KEY en Cloudflare y una clave de acceso local.
+        </div>
+        <div class="longmail-row">
+          <input id="mailSlurpGatewayKey" class="worker-input" type="password"
+                 placeholder="Clave privada de acceso al Worker" autocomplete="off" />
+          <button id="saveMailSlurpGatewayBtn" class="btn ghost" type="button">Guardar clave</button>
+        </div>
+        <div class="health-help">
+          La API key de MailSlurp nunca se guarda en GitHub ni en esta página. Solo esta clave secundaria queda en este dispositivo.
+        </div>
+      </div>
     </div>
 
     <div class="settings-block">
@@ -637,7 +689,7 @@
   const DROPMAIL_TOKEN_KEY = 'correo_temporal_dropmail_token_v1';
   const WORKER_URL_KEY = 'correo_temporal_worker_url_v1';
   const DEFAULT_WORKER_URL = 'https://correo-temp-api.djkados11.workers.dev';
-  const APP_VERSION = '27.0';
+  const APP_VERSION = '30.0';
   const STORAGE_KEY = 'correo_temporal_mail123_v2';
   const HISTORY_KEY = 'correo_temporal_history_v2';
   const LEGACY_HISTORY_KEY = 'correo_temporal_history_v1';
@@ -646,18 +698,26 @@
   const AUTO_LAST_DOMAIN_KEY = 'correo_temporal_auto_last_domain_v1';
   const AUTO_LAST_PROVIDER_KEY = 'correo_temporal_auto_last_provider_v1';
   const DOMAIN_HEALTH_KEY = 'correo_temporal_domain_health_v1';
+  const MAILSLURP_GATEWAY_KEY_LOCAL = 'correo_temporal_mailslurp_gateway_v1';
+  const FREECUSTOM_GATEWAY_KEY_LOCAL = 'correo_temporal_freecustom_gateway_v1';
   const DOMAIN_BLOCK_AFTER_FAILURES = 2;
   const DOMAIN_BLOCK_MS = 24 * 60 * 60 * 1000;
   const DOMAIN_LONG_BLOCK_MS = 72 * 60 * 60 * 1000;
-  const ACTIVE_POLL_MS = 7 * 1000;    // ~8.6 consultas/min, por debajo del límite gratuito de 10/min
-  const HIDDEN_POLL_MS = 90 * 1000;
-  const WAIT_POLL_MS = 7 * 1000;
-  const WAIT_DURATION_MS = 5 * 60 * 1000; // conservador para el plan gratuito
+  const ACTIVE_POLL_MS = 30 * 1000;
+  const HIDDEN_POLL_MS = 120 * 1000;
+  const WAIT_POLL_MS = 15 * 1000;
+  const FREECUSTOM_ACTIVE_POLL_MS = 60 * 1000;
+  const FREECUSTOM_HIDDEN_POLL_MS = 120 * 1000;
+  const FREECUSTOM_WAIT_POLL_MS = 15 * 1000;
+  const MAILSLURP_ACTIVE_POLL_MS = 60 * 1000;
+  const MAILSLURP_WAIT_CHUNK_MS = 110 * 1000;
+  const WAIT_DURATION_MS = 5 * 60 * 1000; // conservador para proveedores gratuitos
 
   let box = null;
   let pollTimer = null;
   let waitTimer = null;
   let waitCountdownTimer = null;
+  let mailSlurpWaitAbortController = null;
   let waitUntil = 0;
   let waitHealthDomain = '';
   let waitHealthProvider = '';
@@ -673,6 +733,11 @@
   let mailTmDomains = [];
   let mailGwDomains = [];
   let duckMailDomains = [];
+  let freeCustomDomains = [];
+  let tempAgencyDomains = [];
+  let mailSlurpReady = false;
+  let freeCustomReady = false;
+  // Solo compatibilidad con bandejas antiguas: Mailnesia ya no genera correos nuevos.
   let mailnesiaDomains = [
     'mailnesia.com','airmailed.shop','bulkfinder.site','emaill.mom','mailed.click','poofmail.fit'
   ];
@@ -696,7 +761,11 @@
     modal:$('modal'), closeModalBtn:$('closeModalBtn'),
     modalSubject:$('modalSubject'), modalMeta:$('modalMeta'), modalBody:$('modalBody'),
     otpBox:$('otpBox'), otpCode:$('otpCode'), copyOtpBtn:$('copyOtpBtn'),
-    links:$('links'), mailViewTitle:$('mailViewTitle'), mailFrameWrap:$('mailFrameWrap'), mailFrame:$('mailFrame'), domainSelect:$('domainSelect'), reloadDomainsBtn:$('reloadDomainsBtn'), domainNote:$('domainNote'), managerSummary:$('managerSummary'), openSettingsInlineBtn:$('openSettingsInlineBtn'), confirmModal:$('confirmModal'), confirmCancelBtn:$('confirmCancelBtn'), confirmOkBtn:$('confirmOkBtn'), confirmTitle:$('confirmTitle'), confirmText:$('confirmText'), settingsProviderSummary:$('settingsProviderSummary'), workerUrl:$('workerUrl'), saveWorkerUrlBtn:$('saveWorkerUrlBtn'), workerStatus:$('workerStatus'), dropmailToken:$('dropmailToken'), saveDropmailTokenBtn:$('saveDropmailTokenBtn'), resetDomainHealthBtn:$('resetDomainHealthBtn'), domainHealthList:$('domainHealthList'), domainHealthEmpty:$('domainHealthEmpty'), compactStatusProvider:$('compactStatusProvider'), compactMailCount:$('compactMailCount'), topOtpBanner:$('topOtpBanner'), topOtpCode:$('topOtpCode'), copyTopOtpBtn:$('copyTopOtpBtn'), footerManagers:$('footerManagers'), toast:$('toast')
+    links:$('links'), mailViewTitle:$('mailViewTitle'), mailFrameWrap:$('mailFrameWrap'), mailFrame:$('mailFrame'), domainSelect:$('domainSelect'), reloadDomainsBtn:$('reloadDomainsBtn'), domainNote:$('domainNote'), managerSummary:$('managerSummary'), openSettingsInlineBtn:$('openSettingsInlineBtn'), confirmModal:$('confirmModal'), confirmCancelBtn:$('confirmCancelBtn'), confirmOkBtn:$('confirmOkBtn'), confirmTitle:$('confirmTitle'), confirmText:$('confirmText'), settingsProviderSummary:$('settingsProviderSummary'), workerUrl:$('workerUrl'), saveWorkerUrlBtn:$('saveWorkerUrlBtn'), workerStatus:$('workerStatus'), dropmailToken:$('dropmailToken'), saveDropmailTokenBtn:$('saveDropmailTokenBtn'), resetDomainHealthBtn:$('resetDomainHealthBtn'), domainHealthList:$('domainHealthList'), domainHealthEmpty:$('domainHealthEmpty'),
+    freeCustomStatusBadge:$('freeCustomStatusBadge'), freeCustomStatus:$('freeCustomStatus'),
+    freeCustomGatewayKey:$('freeCustomGatewayKey'), saveFreeCustomGatewayBtn:$('saveFreeCustomGatewayBtn'),
+    mailSlurpStatusBadge:$('mailSlurpStatusBadge'), mailSlurpStatus:$('mailSlurpStatus'),
+    mailSlurpGatewayKey:$('mailSlurpGatewayKey'), saveMailSlurpGatewayBtn:$('saveMailSlurpGatewayBtn'), compactStatusProvider:$('compactStatusProvider'), compactPollText:$('compactPollText'), compactMailCount:$('compactMailCount'), topOtpBanner:$('topOtpBanner'), topOtpCode:$('topOtpCode'), copyTopOtpBtn:$('copyTopOtpBtn'), footerManagers:$('footerManagers'), toast:$('toast')
   };
 
   function save(){
@@ -721,11 +790,14 @@
       password: source.password || '',
       token: source.token || '',
       accountId: source.accountId || '',
+      inboxId: source.inboxId || '',
       sessionId: source.sessionId || '',
       expiresAt: source.expiresAt || '',
       dropmailDomainId: source.dropmailDomainId || '',
       sidToken: source.sidToken || '',
       inboxToken: source.inboxToken || '',
+      clientUuid: source.clientUuid || '',
+      emailId: source.emailId || '',
       tempmailMessages: Array.isArray(source.tempmailMessages) ? source.tempmailMessages : []
     };
   }
@@ -1034,7 +1106,10 @@
         box.provider === 'mailtm' ? 'Mail.tm' :
         box.provider === 'mailgw' ? 'Mail.gw' :
         box.provider === 'duckmail' ? 'DuckMail' :
-        box.provider === 'mailnesia' ? 'Mailnesia' :
+        box.provider === 'freecustom' ? 'FreeCustom' :
+        box.provider === 'tempagency' ? 'Temp-Mail Agency' :
+        box.provider === 'mailslurp' ? 'MailSlurp 30+ días' :
+        box.provider === 'mailnesia' ? 'Mailnesia (antiguo)' :
         box.provider === 'guerrilla' ? 'Guerrilla' :
         box.provider === 'dropmail' ? 'DropMail' : 'Mail123';
 
@@ -1128,6 +1203,52 @@
     else localStorage.removeItem(DROPMAIL_TOKEN_KEY);
   }
 
+  function getMailSlurpGatewayKey(){
+    return String(localStorage.getItem(MAILSLURP_GATEWAY_KEY_LOCAL) || '').trim();
+  }
+
+  function setMailSlurpGatewayKey(value){
+    const key = String(value || '').trim();
+    if (key) localStorage.setItem(MAILSLURP_GATEWAY_KEY_LOCAL, key);
+    else localStorage.removeItem(MAILSLURP_GATEWAY_KEY_LOCAL);
+  }
+
+  function mailSlurpWorkerJSON(path, options={}){
+    const gateway = getMailSlurpGatewayKey();
+    if (!gateway){
+      throw new Error('Falta la clave privada de MailSlurp en Configuración.');
+    }
+
+    return workerJSON(path, {
+      ...options,
+      headers:{
+        ...(options.headers || {}),
+        'X-MailSlurp-Gateway':gateway
+      }
+    });
+  }
+
+  function getFreeCustomGatewayKey(){
+    return String(localStorage.getItem(FREECUSTOM_GATEWAY_KEY_LOCAL) || '').trim();
+  }
+
+  function setFreeCustomGatewayKey(value){
+    const key = String(value || '').trim();
+    if (key) localStorage.setItem(FREECUSTOM_GATEWAY_KEY_LOCAL, key);
+    else localStorage.removeItem(FREECUSTOM_GATEWAY_KEY_LOCAL);
+  }
+
+  function freeCustomWorkerJSON(path, options={}){
+    const gateway = getFreeCustomGatewayKey();
+    return workerJSON(path, {
+      ...options,
+      headers:{
+        ...(options.headers || {}),
+        ...(gateway ? {'X-FreeCustom-Gateway':gateway} : {})
+      }
+    });
+  }
+
   function getWorkerUrl(){
     const saved = String(localStorage.getItem(WORKER_URL_KEY) || '').trim().replace(/\/+$/,'');
     return saved || DEFAULT_WORKER_URL;
@@ -1158,6 +1279,10 @@
       const data = await requestJSON(`${base}/health`);
       const service = data?.service || 'Correo Temp API';
       const duckMailReady = data?.capabilities?.duckmail === true;
+      freeCustomReady = data?.capabilities?.freecustom === true;
+      const tempAgencyReady = data?.capabilities?.tempagency === true;
+      mailSlurpReady = data?.capabilities?.mailslurp === true;
+      const mailSlurpWaitReady = data?.capabilities?.mailslurpWait === true;
 
       el.workerStatus.textContent = duckMailReady
         ? `Conectado · ${service}`
@@ -1167,6 +1292,48 @@
         ? 'worker-status ok'
         : 'worker-status bad';
 
+      if (freeCustomReady){
+        el.freeCustomStatusBadge.textContent = 'Disponible';
+        el.freeCustomStatusBadge.className = 'settings-chip ok';
+        el.freeCustomStatus.textContent = getFreeCustomGatewayKey()
+          ? `FreeCustom listo · ${freeCustomDomains.length || 'varios'} dominios del plan actual.`
+          : 'FreeCustom conectado. Si configuraste FREECUSTOM_GATEWAY_KEY, guarda aquí esa clave secundaria.';
+        el.freeCustomStatus.className = 'longmail-status ok';
+      }else{
+        el.freeCustomStatusBadge.textContent = 'Sin API key';
+        el.freeCustomStatusBadge.className = 'settings-chip bad';
+        el.freeCustomStatus.textContent = 'Añade FREECUSTOM_API_KEY como Secret en el Worker de Cloudflare.';
+        el.freeCustomStatus.className = 'longmail-status bad';
+      }
+
+      if (!tempAgencyReady){
+        el.workerStatus.textContent += ' · actualiza Worker para Temp-Mail Agency';
+        el.workerStatus.className = 'worker-status bad';
+      }
+
+      if (mailSlurpReady){
+        el.mailSlurpStatusBadge.textContent = mailSlurpWaitReady ? 'Disponible · espera directa' : 'Disponible';
+        el.mailSlurpStatusBadge.className = mailSlurpWaitReady ? 'settings-chip ok' : 'settings-chip warn';
+
+        if (!mailSlurpWaitReady){
+          el.mailSlurpStatus.textContent = 'MailSlurp recibe correos, pero debes actualiza Worker para espera directa.';
+          el.mailSlurpStatus.className = 'longmail-status bad';
+        }else{
+          el.mailSlurpStatus.textContent = getMailSlurpGatewayKey()
+            ? 'MailSlurp está listo. Esperar código usa conexión directa y la bandeja 30+ días sigue disponible.'
+            : 'MailSlurp está conectado; falta guardar la clave privada de acceso en este dispositivo.';
+          el.mailSlurpStatus.className = getMailSlurpGatewayKey()
+            ? 'longmail-status ok'
+            : 'longmail-status';
+        }
+      }else{
+        el.mailSlurpStatusBadge.textContent = 'Sin API key';
+        el.mailSlurpStatusBadge.className = 'settings-chip bad';
+        el.mailSlurpStatus.textContent = 'Añade MAILSLURP_API_KEY al Worker de Cloudflare.';
+        el.mailSlurpStatus.className = 'longmail-status bad';
+      }
+
+      if (domainsLoaded) populateDomainSelect();
       return true;
     }catch(err){
       el.workerStatus.textContent = `No conecta: ${err?.message || 'error'}`;
@@ -1209,6 +1376,8 @@
     if (mailTmDomains.includes(domain)) return 'mailtm';
     if (mailGwDomains.includes(domain)) return 'mailgw';
     if (duckMailDomains.includes(domain)) return 'duckmail';
+    if (freeCustomDomains.includes(domain)) return 'freecustom';
+    if (tempAgencyDomains.includes(domain)) return 'tempagency';
     if (mailnesiaDomains.includes(domain)) return 'mailnesia';
     if (guerrillaDomains.includes(domain)) return 'guerrilla';
     if (dropMailDomains.some(d => d.name === domain)) return 'dropmail';
@@ -1222,7 +1391,10 @@
     return provider === 'mailtm' ? 'Mail.tm' :
       provider === 'mailgw' ? 'Mail.gw' :
       provider === 'duckmail' ? 'DuckMail' :
-      provider === 'mailnesia' ? 'Mailnesia' :
+      provider === 'freecustom' ? 'FreeCustom' :
+      provider === 'tempagency' ? 'Temp-Mail Agency' :
+      provider === 'mailslurp' ? 'MailSlurp 30+ días' :
+      provider === 'mailnesia' ? 'Mailnesia (antiguo)' :
       provider === 'guerrilla' ? 'Guerrilla Mail' :
       provider === 'dropmail' ? 'DropMail' : 'Mail123';
   }
@@ -1440,7 +1612,8 @@
       ...mailTmDomains.map(domain => ({provider:'mailtm',domain})),
       ...mailGwDomains.map(domain => ({provider:'mailgw',domain})),
       ...duckMailDomains.map(domain => ({provider:'duckmail',domain})),
-      ...mailnesiaDomains.map(domain => ({provider:'mailnesia',domain})),
+      ...freeCustomDomains.map(domain => ({provider:'freecustom',domain})),
+      ...tempAgencyDomains.map(domain => ({provider:'tempagency',domain})),
       ...dropMailDomains.map(item => ({provider:'dropmail',domain:item.name,domainId:item.id}))
     ];
 
@@ -1450,7 +1623,9 @@
   function activeProviderItems(){
     return [
       {label:'Mail123', count:(mail123Domains.length || MAIL123_FALLBACK_DOMAINS.length)},
-      {label:'Mailnesia', count:mailnesiaDomains.length},
+      {label:'MailSlurp 30+ días', count:mailSlurpReady ? 1 : 0},
+      {label:'FreeCustom', count:freeCustomDomains.length},
+      {label:'Temp-Mail Agency', count:tempAgencyDomains.length},
       {label:'DuckMail', count:duckMailDomains.length},
       {label:'Mail.tm', count:mailTmDomains.length},
       {label:'Mail.gw', count:mailGwDomains.length},
@@ -1491,12 +1666,23 @@
       `Automático · ${activeTldFilter === 'all' ? 'todos los gestores' : activeTldFilter}`
     ));
 
+    if (mailSlurpReady && activeTldFilter === 'all'){
+      el.domainSelect.appendChild(
+        domainOption('mailslurp:long', '📬 MailSlurp · Bandeja 30+ días ⭐')
+      );
+    }
+
 
     const groups = [
       {
-        provider:'mailnesia',
-        label:'Mailnesia · varios días',
-        domains:sortDomains(mailnesiaDomains.filter(domainPassesTld))
+        provider:'freecustom',
+        label:'FreeCustom',
+        domains:sortDomains(freeCustomDomains.filter(domainPassesTld))
+      },
+      {
+        provider:'tempagency',
+        label:'Temp-Mail Agency',
+        domains:sortDomains(tempAgencyDomains.filter(domainPassesTld))
       },
       {
         provider:'duckmail',
@@ -1564,7 +1750,8 @@
       ...mailTmDomains,
       ...mailGwDomains,
       ...duckMailDomains,
-      ...mailnesiaDomains,
+      ...freeCustomDomains,
+      ...tempAgencyDomains,
       ...dropMailDomains.map(d => d.name)
     ];
 
@@ -1610,12 +1797,20 @@
     if (provider === 'mailgw'){
       el.domainNote.textContent =
         `Mail.gw: @${domain}. Es útil para verificaciones rápidas.`;
+    }else if (provider === 'mailslurp'){
+      el.domainNote.textContent =
+        'MailSlurp: bandeja privada y persistente para pruebas largas. La app reutiliza la misma dirección en lugar de crear una nueva cada vez.';
     }else if (provider === 'duckmail'){
       el.domainNote.textContent =
         `DuckMail: @${domain}. La cuenta se crea por 3 días y la bandeja se protege con token.`;
-    }else if (provider === 'mailnesia'){
+    }else if (provider === 'freecustom'){
       el.domainNote.textContent =
-        `Mailnesia: @${domain}. Sus dominios alternativos suelen durar alrededor de un año y los mensajes normalmente algunos días.`;
+        `FreeCustom: @${domain}. Dominio del plan actual; la bandeja usa el Worker para mantener la API key protegida.`;
+    }else if (provider === 'tempagency'){
+      el.domainNote.textContent =
+        `Temp-Mail Agency: @${domain}. Dominio activo consultado en tiempo real con alias personalizado.`;
+    }else if (provider === 'mailnesia'){
+      el.domainNote.textContent = 'Mailnesia: bandeja antigua conservada solo para lectura.';
     }else if (provider === 'guerrilla'){
       el.domainNote.textContent =
         `Guerrilla Mail: @${domain}. La bandeja usa una sesión temporal y sus mensajes duran aproximadamente 60 minutos.`;
@@ -1679,10 +1874,11 @@
 
       const workerData = (rworker.status === 'fulfilled' && rworker.value) ? rworker.value : null;
 
-      mailnesiaDomains =
-        Array.isArray(workerData?.mailnesia) && workerData.mailnesia.length
-          ? workerData.mailnesia
-          : [...MAILNESIA_FALLBACK_DOMAINS];
+      freeCustomDomains =
+        Array.isArray(workerData?.freecustom) ? workerData.freecustom : [];
+
+      tempAgencyDomains =
+        Array.isArray(workerData?.tempagency) ? workerData.tempagency : [];
 
       duckMailDomains =
         Array.isArray(workerData?.duckmail) ? workerData.duckmail : [];
@@ -1702,16 +1898,17 @@
       if (force){
         const total = (mail123Domains.length || MAIL123_FALLBACK_DOMAINS.length)
           + mailTmDomains.length + mailGwDomains.length
-          + mailnesiaDomains.length + duckMailDomains.length + guerrillaDomains.length + dropMailDomains.length;
+          + freeCustomDomains.length + tempAgencyDomains.length + duckMailDomains.length + guerrillaDomains.length + dropMailDomains.length;
 
         toast(`Dominios disponibles: ${total}`);
       }
     }catch(err){
       console.warn('Error general cargando dominios', err);
 
-      // Los gestores principales conservan un pool de respaldo.
+      // Mail123 conserva un pool local; los proveedores de Worker se recuperan al reintentar.
       mail123Domains = [...MAIL123_FALLBACK_DOMAINS];
-      mailnesiaDomains = [...MAILNESIA_FALLBACK_DOMAINS];
+      freeCustomDomains = [];
+      tempAgencyDomains = [];
       guerrillaDomains = [...GUERRILLA_FALLBACK_DOMAINS];
 
       domainsLoaded = true;
@@ -1804,16 +2001,6 @@
   }
 
 
-  async function createMailnesiaMailbox(domain){
-    const alias = shortAlias();
-    return {
-      provider:'mailnesia',
-      address:`${alias}@${domain}`,
-      domain,
-      createdAt:Date.now()
-    };
-  }
-
   async function createGuerrillaMailbox(domain){
     const alias = shortAlias();
     const data = await workerJSON(`/guerrilla/create?alias=${encodeURIComponent(alias)}&domain=${encodeURIComponent(domain)}`);
@@ -1897,6 +2084,48 @@
     if (provider === 'mailtm' || provider === 'mailgw'){
       return createAccountMailbox(provider, domain);
     }
+    if (provider === 'mailslurp'){
+      const data = await mailSlurpWorkerJSON('/mailslurp/long-inbox');
+
+      if (!data?.address || !data?.inboxId){
+        throw new Error('MailSlurp no devolvió una bandeja persistente válida.');
+      }
+
+      return {
+        provider:'mailslurp',
+        address:normalizeEmail(data.address),
+        domain:normalizeEmail(data.address).split('@')[1] || '',
+        inboxId:data.inboxId,
+        expiresAt:data.expiresAt || '',
+        createdAt:data.createdAt ? new Date(data.createdAt).getTime() : Date.now()
+      };
+    }
+    if (provider === 'freecustom'){
+      const alias = shortAlias();
+      const data = await freeCustomWorkerJSON(`/freecustom/create?alias=${encodeURIComponent(alias)}&domain=${encodeURIComponent(domain)}`);
+      if (!data?.address) throw new Error('FreeCustom no devolvió una bandeja válida.');
+      return {
+        provider:'freecustom',
+        address:normalizeEmail(data.address),
+        domain,
+        createdAt:Date.now()
+      };
+    }
+    if (provider === 'tempagency'){
+      const alias = shortAlias();
+      const data = await workerJSON(`/tempagency/create?alias=${encodeURIComponent(alias)}&domain=${encodeURIComponent(domain)}`);
+      if (!data?.address || !data?.clientUuid || !data?.emailId){
+        throw new Error('Temp-Mail Agency no devolvió una bandeja válida.');
+      }
+      return {
+        provider:'tempagency',
+        address:normalizeEmail(data.address),
+        domain,
+        clientUuid:data.clientUuid,
+        emailId:data.emailId,
+        createdAt:Date.now()
+      };
+    }
     if (provider === 'duckmail'){
       const data = await workerJSON(`/duckmail/create?alias=${encodeURIComponent(shortAlias())}&domain=${encodeURIComponent(domain)}`);
       if (!data?.address || !data?.token){
@@ -1910,9 +2139,6 @@
         accountId:data.accountId || '',
         createdAt:Date.now()
       };
-    }
-    if (provider === 'mailnesia'){
-      return createMailnesiaMailbox(domain);
     }
     if (provider === 'dropmail'){
       return createDropMailMailbox(domain);
@@ -2041,8 +2267,25 @@
       return fetchDropMailMessages();
     }
 
+    if (box?.provider === 'freecustom'){
+      const data = await freeCustomWorkerJSON(`/freecustom/messages?address=${encodeURIComponent(box.address)}`);
+      return normalizeWorkerMessages(data);
+    }
+
+    if (box?.provider === 'tempagency'){
+      if (!box.clientUuid || !box.emailId) throw new Error('Esta bandeja Temp-Mail Agency no tiene su sesión guardada.');
+      const data = await workerJSON(`/tempagency/messages?uuid=${encodeURIComponent(box.clientUuid)}&emailId=${encodeURIComponent(box.emailId)}`);
+      return normalizeWorkerMessages(data);
+    }
+
     if (box?.provider === 'mailnesia'){
       const data = await workerJSON(`/mailnesia/messages?address=${encodeURIComponent(box.address)}`);
+      return normalizeWorkerMessages(data);
+    }
+
+    if (box?.provider === 'mailslurp'){
+      if (!box.inboxId) throw new Error('Esta bandeja MailSlurp no tiene inboxId guardado.');
+      const data = await mailSlurpWorkerJSON(`/mailslurp/messages?inboxId=${encodeURIComponent(box.inboxId)}`);
       return normalizeWorkerMessages(data);
     }
 
@@ -2076,8 +2319,24 @@
       return messages.find(m => String(m.id) === String(id)) || {};
     }
 
+    if (box?.provider === 'freecustom'){
+      const data = await freeCustomWorkerJSON(`/freecustom/message?address=${encodeURIComponent(box.address)}&id=${encodeURIComponent(id)}`);
+      return data?.message || data || {};
+    }
+
+    if (box?.provider === 'tempagency'){
+      if (!box.clientUuid || !box.emailId) throw new Error('Esta bandeja Temp-Mail Agency no tiene su sesión guardada.');
+      const data = await workerJSON(`/tempagency/message?uuid=${encodeURIComponent(box.clientUuid)}&emailId=${encodeURIComponent(box.emailId)}&id=${encodeURIComponent(id)}`);
+      return data?.message || data || {};
+    }
+
     if (box?.provider === 'mailnesia'){
       const data = await workerJSON(`/mailnesia/message?address=${encodeURIComponent(box.address)}&id=${encodeURIComponent(id)}`);
+      return data?.message || data || {};
+    }
+
+    if (box?.provider === 'mailslurp'){
+      const data = await mailSlurpWorkerJSON(`/mailslurp/message?id=${encodeURIComponent(id)}`);
       return data?.message || data || {};
     }
 
@@ -2278,12 +2537,12 @@
         box = {...saved, address:typed};
       }else{
         const provider = inferProviderFromAddress(typed);
-        if (provider === 'mailtm' || provider === 'mailgw' || provider === 'duckmail' || provider === 'guerrilla' || provider === 'dropmail'){
+        if (provider === 'mailtm' || provider === 'mailgw' || provider === 'duckmail' || provider === 'tempagency' || provider === 'mailslurp' || provider === 'guerrilla' || provider === 'dropmail'){
           throw new Error(`Para volver a abrir un correo de ${providerLabel(provider)} debes haberlo generado antes en este mismo dispositivo.`);
         }
         box = {
           address:typed,
-          provider:provider === 'mailnesia' ? 'mailnesia' : 'mail123',
+          provider:provider === 'mailnesia' ? 'mailnesia' : (provider === 'freecustom' ? 'freecustom' : 'mail123'),
           domain:typed.split('@')[1] || '',
           createdAt:Date.now()
         };
@@ -3124,9 +3383,62 @@
       const ss = Math.floor((left % 60000) / 1000);
       el.waitBtn.classList.add('active');
       el.waitBtn.textContent = `⚡ Esperando código · ${mm}:${String(ss).padStart(2,'0')}`;
+      updateLivePill();
     }else{
       el.waitBtn.classList.remove('active');
       el.waitBtn.textContent = '⚡ Esperar código';
+      updateLivePill();
+    }
+  }
+
+  async function waitForMailSlurpInbox(){
+    if (box?.provider !== 'mailslurp' || !box?.inboxId) return;
+
+    let since = new Date().toISOString();
+
+    while (waitUntil > Date.now() && box?.provider === 'mailslurp'){
+      const remaining = Math.max(1000, waitUntil - Date.now());
+      const timeout = Math.min(MAILSLURP_WAIT_CHUNK_MS, remaining);
+
+      mailSlurpWaitAbortController = new AbortController();
+
+      try{
+        const data = await mailSlurpWorkerJSON(
+          `/mailslurp/wait?inboxId=${encodeURIComponent(box.inboxId)}&timeout=${encodeURIComponent(timeout)}&since=${encodeURIComponent(since)}`,
+          {
+            signal:mailSlurpWaitAbortController.signal,
+            timeoutMs:timeout + 15000
+          }
+        );
+
+        if (waitUntil <= Date.now()) return;
+
+        if (data?.timedOut){
+          since = new Date().toISOString();
+          continue;
+        }
+
+        if (data?.message){
+          const receivedAt = data.message.createdAt || data.message.receivedAt || '';
+          if (receivedAt){
+            const t = new Date(receivedAt).getTime();
+            since = Number.isFinite(t) ? new Date(t + 1).toISOString() : new Date().toISOString();
+          }else{
+            since = new Date().toISOString();
+          }
+
+          // Solo hacemos una consulta normal cuando MailSlurp avisa que llegó algo.
+          await refresh(false);
+
+          // Si refresh detectó el OTP, stopWaitMode() ya habrá terminado la espera.
+          if (waitUntil <= Date.now()) return;
+        }
+      }catch(err){
+        if (err?.name === 'AbortError' || waitUntil <= Date.now()) return;
+        throw err;
+      }finally{
+        mailSlurpWaitAbortController = null;
+      }
     }
   }
 
@@ -3150,12 +3462,28 @@
     waitUntil = Date.now() + WAIT_DURATION_MS;
     updateWaitButton();
 
-    // Revisión inmediata.
+    // Deja una foto inicial de la bandeja para detectar solo correos nuevos.
     await refresh(false);
 
     if (waitUntil <= Date.now()) return;
 
-    waitTimer = setInterval(() => refresh(false), WAIT_POLL_MS);
+    if (box?.provider === 'mailslurp'){
+      // MailSlurp mantiene una conexión abierta y responde cuando llega el email.
+      // No hacemos polling cada pocos segundos mientras esta espera está activa.
+      stopPolling();
+      waitForMailSlurpInbox().catch(err => {
+        if (waitUntil <= Date.now()) return;
+        console.warn('MailSlurp wait directo falló; uso fallback de 15 s', err);
+        toast('Espera directa no disponible; usando revisión cada 15 s');
+        waitTimer = setInterval(() => refresh(false), WAIT_POLL_MS);
+      });
+    }else{
+      const waitPollMs = box?.provider === 'freecustom'
+        ? FREECUSTOM_WAIT_POLL_MS
+        : WAIT_POLL_MS;
+      waitTimer = setInterval(() => refresh(false), waitPollMs);
+    }
+
     waitCountdownTimer = setInterval(() => {
       if (waitUntil <= Date.now()){
         stopWaitMode('timeout');
@@ -3174,9 +3502,15 @@
 
     if (waitTimer) clearInterval(waitTimer);
     if (waitCountdownTimer) clearInterval(waitCountdownTimer);
+    if (mailSlurpWaitAbortController){
+      try{ mailSlurpWaitAbortController.abort(); }catch{}
+    }
+
+    const wasMailSlurp = box?.provider === 'mailslurp';
 
     waitTimer = null;
     waitCountdownTimer = null;
+    mailSlurpWaitAbortController = null;
     waitUntil = 0;
 
     waitHealthDomain = '';
@@ -3191,19 +3525,55 @@
     }else if (reason === 'success' && domain && !recordedSuccess){
       recordDomainSuccess(domain, provider);
     }
+
+    if (wasMailSlurp && box?.address){
+      startPolling();
+    }
   }
 
   function currentPollInterval(){
+    if (box?.provider === 'freecustom'){
+      return document.visibilityState === 'visible'
+        ? FREECUSTOM_ACTIVE_POLL_MS
+        : FREECUSTOM_HIDDEN_POLL_MS;
+    }
+
+    if (box?.provider === 'mailslurp'){
+      return document.visibilityState === 'visible'
+        ? MAILSLURP_ACTIVE_POLL_MS
+        : HIDDEN_POLL_MS;
+    }
+
     return document.visibilityState === 'visible'
       ? ACTIVE_POLL_MS
       : HIDDEN_POLL_MS;
   }
 
   function updateLivePill(){
+    const isFreeCustom = box?.provider === 'freecustom';
+    const isMailSlurp = box?.provider === 'mailslurp';
+
+    let visibleLabel = 'En vivo · 30 s';
+    let compactLabel = 'En vivo 30 s';
+
+    if (isFreeCustom){
+      visibleLabel = 'En vivo · 60 s';
+      compactLabel = 'En vivo 60 s';
+    }else if (isMailSlurp){
+      visibleLabel = waitUntil > Date.now() ? 'Esperando correo' : 'En vivo · 60 s';
+      compactLabel = waitUntil > Date.now() ? 'Esperando correo' : 'En vivo 60 s';
+    }
+
+    if (el.compactPollText){
+      el.compactPollText.textContent = document.visibilityState === 'visible'
+        ? compactLabel
+        : 'Segundo plano';
+    }
+
     if (!el.livePill) return;
     if (document.visibilityState === 'visible'){
       el.livePill.classList.add('ok');
-      el.livePill.innerHTML = '<b>En vivo · 7 s</b>';
+      el.livePill.innerHTML = `<b>${visibleLabel}</b>`;
     }else{
       el.livePill.classList.remove('ok');
       el.livePill.innerHTML = '<b>En segundo plano</b>';
@@ -3274,6 +3644,32 @@
     el.settingsModal.classList.remove('show');
   }
 
+  el.freeCustomGatewayKey.value = getFreeCustomGatewayKey();
+
+  el.saveFreeCustomGatewayBtn.addEventListener('click', async () => {
+    const value = String(el.freeCustomGatewayKey.value || '').trim();
+    setFreeCustomGatewayKey(value);
+    toast(value ? 'Clave privada de FreeCustom guardada' : 'Clave privada de FreeCustom eliminada');
+    await checkWorker();
+    populateDomainSelect();
+  });
+
+  el.mailSlurpGatewayKey.value = getMailSlurpGatewayKey();
+
+  el.saveMailSlurpGatewayBtn.addEventListener('click', async () => {
+    const value = String(el.mailSlurpGatewayKey.value || '').trim();
+    setMailSlurpGatewayKey(value);
+
+    if (value){
+      toast('Clave privada de MailSlurp guardada');
+    }else{
+      toast('Clave privada de MailSlurp eliminada');
+    }
+
+    await checkWorker();
+    populateDomainSelect();
+  });
+
   el.resetDomainHealthBtn.addEventListener('click', async () => {
     const accepted = await pageConfirm({
       title:'¿Restablecer entregabilidad?',
@@ -3317,7 +3713,8 @@
 
     setWorkerUrl(value);
     domainsLoaded = false;
-    mailnesiaDomains = [];
+    freeCustomDomains = [];
+    tempAgencyDomains = [];
     guerrillaDomains = [];
 
     const ok = await checkWorker();
