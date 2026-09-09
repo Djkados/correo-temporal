@@ -332,8 +332,17 @@
     .longmail-status{margin-top:6px;font-size:10.5px;color:var(--muted)}
     .longmail-status.ok{color:#bff2d3}
     .longmail-status.bad{color:#ffb0b8}
-    .longmail-row{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:8px;margin-top:9px}
-    @media(max-width:639px){.longmail-row{grid-template-columns:1fr}}
+    .longmail-row{display:grid;grid-template-columns:minmax(0,1fr) auto auto auto;gap:8px;margin-top:9px}
+    .longmail-row .btn{white-space:nowrap}
+    @media(max-width:760px){
+      .longmail-row{grid-template-columns:minmax(0,1fr) auto auto}
+      .longmail-row #saveMailSlurpGatewayBtn{grid-column:1/-1}
+    }
+    @media(max-width:520px){
+      .longmail-row{grid-template-columns:1fr 1fr}
+      .longmail-row #mailSlurpGatewayKey{grid-column:1/-1}
+      .longmail-row #saveMailSlurpGatewayBtn{grid-column:1/-1}
+    }
 
 
     @media(max-width:639px){
@@ -570,7 +579,7 @@
       <div>
         <div class="eyebrow">Configuración</div>
         <h3 id="settingsTitle">Gestores de correo</h3>
-        <div class="standalone-note">Versión <b id="appVersionLabel">v32.2</b></div>
+        <div class="standalone-note">Versión <b id="appVersionLabel">v32.3</b></div>
       </div>
       <button id="closeSettingsBtn" class="icon-btn" type="button">✕</button>
     </div>
@@ -602,6 +611,8 @@
         <div class="longmail-row">
           <input id="mailSlurpGatewayKey" class="worker-input" type="password"
                  placeholder="Clave privada de acceso al Worker" autocomplete="off" />
+          <button id="toggleMailSlurpGatewayBtn" class="btn ghost" type="button" title="Mostrar u ocultar clave">Mostrar</button>
+          <button id="copyMailSlurpGatewayBtn" class="btn ghost" type="button" title="Copiar clave guardada">Copiar</button>
           <button id="saveMailSlurpGatewayBtn" class="btn ghost" type="button">Guardar clave</button>
         </div>
         <div class="health-help">
@@ -671,7 +682,7 @@
   const DROPMAIL_TOKEN_KEY = 'correo_temporal_dropmail_token_v1';
   const WORKER_URL_KEY = 'correo_temporal_worker_url_v1';
   const DEFAULT_WORKER_URL = 'https://correo-temp-api.djkados11.workers.dev';
-  const APP_VERSION = '32.2';
+  const APP_VERSION = '32.3';
   const STORAGE_KEY = 'correo_temporal_mail123_v2';
   const HISTORY_KEY = 'correo_temporal_history_v2';
   const LEGACY_HISTORY_KEY = 'correo_temporal_history_v1';
@@ -744,7 +755,7 @@
     otpBox:$('otpBox'), otpCode:$('otpCode'), copyOtpBtn:$('copyOtpBtn'),
     links:$('links'), mailViewTitle:$('mailViewTitle'), mailFrameWrap:$('mailFrameWrap'), mailFrame:$('mailFrame'), domainSelect:$('domainSelect'), reloadDomainsBtn:$('reloadDomainsBtn'), domainNote:$('domainNote'), managerSummary:$('managerSummary'), openSettingsInlineBtn:$('openSettingsInlineBtn'), confirmModal:$('confirmModal'), confirmCancelBtn:$('confirmCancelBtn'), confirmOkBtn:$('confirmOkBtn'), confirmTitle:$('confirmTitle'), confirmText:$('confirmText'), settingsProviderSummary:$('settingsProviderSummary'), workerUrl:$('workerUrl'), saveWorkerUrlBtn:$('saveWorkerUrlBtn'), workerStatus:$('workerStatus'), dropmailToken:$('dropmailToken'), saveDropmailTokenBtn:$('saveDropmailTokenBtn'), dropmailStatusBadge:$('dropmailStatusBadge'), dropmailStatus:$('dropmailStatus'), resetDomainHealthBtn:$('resetDomainHealthBtn'), domainHealthList:$('domainHealthList'), domainHealthEmpty:$('domainHealthEmpty'),
     mailSlurpStatusBadge:$('mailSlurpStatusBadge'), mailSlurpStatus:$('mailSlurpStatus'),
-    mailSlurpGatewayKey:$('mailSlurpGatewayKey'), saveMailSlurpGatewayBtn:$('saveMailSlurpGatewayBtn'), compactStatusProvider:$('compactStatusProvider'), compactPollText:$('compactPollText'), compactMailCount:$('compactMailCount'), topOtpBanner:$('topOtpBanner'), topOtpCode:$('topOtpCode'), copyTopOtpBtn:$('copyTopOtpBtn'), footerManagers:$('footerManagers'), toast:$('toast')
+    mailSlurpGatewayKey:$('mailSlurpGatewayKey'), toggleMailSlurpGatewayBtn:$('toggleMailSlurpGatewayBtn'), copyMailSlurpGatewayBtn:$('copyMailSlurpGatewayBtn'), saveMailSlurpGatewayBtn:$('saveMailSlurpGatewayBtn'), compactStatusProvider:$('compactStatusProvider'), compactPollText:$('compactPollText'), compactMailCount:$('compactMailCount'), topOtpBanner:$('topOtpBanner'), topOtpCode:$('topOtpCode'), copyTopOtpBtn:$('copyTopOtpBtn'), footerManagers:$('footerManagers'), toast:$('toast')
   };
 
   function save(){
@@ -1202,7 +1213,7 @@
   function mailSlurpWorkerJSON(path, options={}){
     const gateway = getMailSlurpGatewayKey();
     if (!gateway){
-      throw new Error('Falta la clave privada de MailSlurp en Configuración.');
+      throw new Error('Falta la clave privada de MailSlurp en Configuración. Abre ⚙️ Configuración y pega la misma MAILSLURP_GATEWAY_KEY que guardaste en Cloudflare.');
     }
 
     return workerJSON(path, {
@@ -3655,6 +3666,8 @@
 
 
   function openSettings(){
+    el.mailSlurpGatewayKey.value = getMailSlurpGatewayKey();
+    updateMailSlurpGatewayControls();
     el.settingsModal.classList.add('show');
   }
 
@@ -3662,7 +3675,43 @@
     el.settingsModal.classList.remove('show');
   }
 
+  function updateMailSlurpGatewayControls(){
+    const value = String(el.mailSlurpGatewayKey.value || '').trim();
+    el.copyMailSlurpGatewayBtn.disabled = !value;
+    el.toggleMailSlurpGatewayBtn.disabled = !value;
+    el.toggleMailSlurpGatewayBtn.textContent = el.mailSlurpGatewayKey.type === 'password' ? 'Mostrar' : 'Ocultar';
+  }
+
   el.mailSlurpGatewayKey.value = getMailSlurpGatewayKey();
+  updateMailSlurpGatewayControls();
+
+  el.mailSlurpGatewayKey.addEventListener('input', updateMailSlurpGatewayControls);
+
+  el.toggleMailSlurpGatewayBtn.addEventListener('click', () => {
+    const showing = el.mailSlurpGatewayKey.type === 'text';
+    el.mailSlurpGatewayKey.type = showing ? 'password' : 'text';
+    updateMailSlurpGatewayControls();
+    if (!showing) el.mailSlurpGatewayKey.select();
+  });
+
+  el.copyMailSlurpGatewayBtn.addEventListener('click', async () => {
+    const value = String(el.mailSlurpGatewayKey.value || '').trim();
+    if (!value){
+      toast('No hay una clave MailSlurp guardada en este dispositivo');
+      return;
+    }
+
+    try{
+      await navigator.clipboard.writeText(value);
+      toast('Clave privada de MailSlurp copiada');
+    }catch{
+      el.mailSlurpGatewayKey.type = 'text';
+      el.mailSlurpGatewayKey.focus();
+      el.mailSlurpGatewayKey.select();
+      updateMailSlurpGatewayControls();
+      toast('Seleccioné la clave. Usa Ctrl+C para copiarla.');
+    }
+  });
 
   el.saveMailSlurpGatewayBtn.addEventListener('click', async () => {
     const value = String(el.mailSlurpGatewayKey.value || '').trim();
@@ -3674,6 +3723,7 @@
       toast('Clave privada de MailSlurp eliminada');
     }
 
+    updateMailSlurpGatewayControls();
     await checkWorker();
     populateDomainSelect();
   });

@@ -1,4 +1,4 @@
-# Correo Temporal Mini v32.2 — PWA
+# Correo Temporal Mini v32.3 — PWA
 
 Esta versión está preparada para usarse e instalarse tanto en PC como en celular.
 
@@ -456,3 +456,11 @@ MailSlurp mantiene su espera directa sin polling.
 - El modal usa un único panel centrado con scroll vertical interno.
 - No cambia proveedores, API keys, Cloudflare Worker ni lógica de correo.
 - Solo requiere actualizar `index.html`, `sw.js` y `README.md` en GitHub Pages.
+
+
+## Cambio v32.3 — MailSlurp: mostrar y copiar clave local
+- Añade botones **Mostrar/Ocultar** y **Copiar** para `MAILSLURP_GATEWAY_KEY` guardada en el dispositivo.
+- Al abrir Configuración, el campo se refresca desde `localStorage`.
+- Si Clipboard API falla, selecciona automáticamente la clave para copiarla con Ctrl+C.
+- Si no existe una clave local, el mensaje indica que debe pegarse la misma `MAILSLURP_GATEWAY_KEY` configurada en Cloudflare.
+- No cambia el Worker API v26 ni ninguna API key.
