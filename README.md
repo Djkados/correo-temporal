@@ -1,4 +1,4 @@
-# Correo Temporal Mini v32.4 — PWA
+# Correo Temporal Mini v32.5 — PWA
 
 Esta versión está preparada para usarse e instalarse tanto en PC como en celular.
 
@@ -473,3 +473,15 @@ MailSlurp mantiene su espera directa sin polling.
 - Inboxes.com permite reactivar una dirección conocida escribiéndola y tocando **Actualizar**.
 - Worker: **Correo Temporal API v27**.
 - Frontend: **v32.4**.
+
+
+## Cambio v32.5 — MailSlurp cambia de dominio cuando puede
+- Consulta el endpoint oficial `/domains/mailslurp-domains` para conocer los dominios MailSlurp disponibles para la cuenta.
+- `Nuevo correo` excluye el dominio anterior cuando existen alternativas.
+- La creación usa `domainName` explícito en vez de depender del azar de `useDomainPool`.
+- Si solo existe un dominio disponible, la app lo informa claramente.
+- Los filtros `.net`, `.us`, `.cloud`, `.shop`, `.pro` y `.site` también consideran los dominios de MailSlurp.
+- MailSlurp sigue fuera de `Automático`; permanece como proveedor especial de larga duración.
+- Configuración y resumen muestran el número real de dominios MailSlurp disponibles.
+- Worker: **Correo Temporal API v28**.
+- Frontend: **v32.5**.

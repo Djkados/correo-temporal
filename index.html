@@ -449,6 +449,7 @@
       <button class="tld-btn" data-tld=".us" type="button">.us</button>
       <button class="tld-btn" data-tld=".cloud" type="button">.cloud</button>
       <button class="tld-btn" data-tld=".shop" type="button">.shop</button>
+      <button class="tld-btn" data-tld=".pro" type="button">.pro</button>
       <button class="tld-btn" data-tld=".site" type="button">.site</button>
     </div>
 
@@ -579,7 +580,7 @@
       <div>
         <div class="eyebrow">Configuración</div>
         <h3 id="settingsTitle">Gestores de correo</h3>
-        <div class="standalone-note">Versión <b id="appVersionLabel">v32.4</b></div>
+        <div class="standalone-note">Versión <b id="appVersionLabel">v32.5</b></div>
       </div>
       <button id="closeSettingsBtn" class="icon-btn" type="button">✕</button>
     </div>
@@ -682,7 +683,7 @@
   const DROPMAIL_TOKEN_KEY = 'correo_temporal_dropmail_token_v1';
   const WORKER_URL_KEY = 'correo_temporal_worker_url_v1';
   const DEFAULT_WORKER_URL = 'https://correo-temp-api.djkados11.workers.dev';
-  const APP_VERSION = '32.4';
+  const APP_VERSION = '32.5';
   const STORAGE_KEY = 'correo_temporal_mail123_v2';
   const HISTORY_KEY = 'correo_temporal_history_v2';
   const LEGACY_HISTORY_KEY = 'correo_temporal_history_v1';
@@ -726,6 +727,7 @@
   let grabMailDomains = [];
   let mailsacDomains = [];
   let inboxesDomains = [];
+  let mailSlurpDomains = [];
   // Solo compatibilidad con bandejas antiguas de v31.
   let tempAgencyDomains = [];
   let mailSlurpReady = false;
@@ -1263,6 +1265,7 @@
       const inboxesConfigured = capabilities.inboxes === true;
       mailSlurpReady = capabilities.mailslurp === true;
       const mailSlurpWaitReady = capabilities.mailslurpWait === true;
+      const mailSlurpDomainsReady = capabilities.mailslurpDomains === true;
 
       el.workerStatus.textContent = duckMailReady
         ? `Conectado · ${service}`
@@ -1285,6 +1288,11 @@
         if (!inboxesConfigured) el.workerStatus.textContent += ' · falta INBOXES_RAPIDAPI_KEY';
       }
 
+      if (mailSlurpReady && !mailSlurpDomainsReady){
+        el.workerStatus.textContent += ' · actualiza Worker v28';
+        el.workerStatus.className = 'worker-status bad';
+      }
+
       if (mailSlurpReady){
         el.mailSlurpStatusBadge.textContent = mailSlurpWaitReady ? 'Disponible · espera directa' : 'Disponible';
         el.mailSlurpStatusBadge.className = mailSlurpWaitReady ? 'settings-chip ok' : 'settings-chip warn';
@@ -1294,7 +1302,9 @@
           el.mailSlurpStatus.className = 'longmail-status bad';
         }else{
           el.mailSlurpStatus.textContent = getMailSlurpGatewayKey()
-            ? 'MailSlurp está listo. Esperar código usa conexión directa y la bandeja 30+ días sigue disponible.'
+            ? (mailSlurpDomains.length
+                ? `MailSlurp está listo · ${mailSlurpDomains.length} dominio${mailSlurpDomains.length === 1 ? '' : 's'} disponible${mailSlurpDomains.length === 1 ? '' : 's'}. Nuevo correo intenta cambiar de dominio.`
+                : 'MailSlurp está listo. Pulsa Dominios para consultar los dominios disponibles de tu cuenta.')
             : 'MailSlurp está conectado; falta guardar la clave privada de acceso en este dispositivo.';
           el.mailSlurpStatus.className = getMailSlurpGatewayKey()
             ? 'longmail-status ok'
@@ -1393,7 +1403,7 @@
   }
 
   const TLD_PRIORITY = [
-    '.shop', '.site', '.net', '.us', '.cloud',
+    '.shop', '.pro', '.site', '.net', '.us', '.cloud',
     '.com', '.org', '.biz', '.info', '.fr', '.de'
   ];
 
@@ -1617,7 +1627,7 @@
   function activeProviderItems(){
     return [
       {label:'Mail123', count:(mail123Domains.length || MAIL123_FALLBACK_DOMAINS.length)},
-      {label:'MailSlurp 30+ días', count:mailSlurpReady ? 1 : 0},
+      {label:'MailSlurp 30+ días', count:mailSlurpDomains.length},
       {label:'GrabMail', count:grabMailDomains.length},
       {label:'Mailsac', count:mailsacDomains.length},
       {label:'Inboxes', count:inboxesDomains.length},
@@ -1661,9 +1671,15 @@
       `Automático · ${activeTldFilter === 'all' ? 'todos los gestores' : activeTldFilter}`
     ));
 
-    if (mailSlurpReady && activeTldFilter === 'all'){
+    const mailSlurpMatchesFilter = activeTldFilter === 'all'
+      ? mailSlurpReady
+      : mailSlurpDomains.some(domainPassesTld);
+
+    if (mailSlurpReady && mailSlurpMatchesFilter){
+      const filterLabel = activeTldFilter === 'all' ? '' : ` · ${activeTldFilter}`;
+      const countLabel = mailSlurpDomains.length ? ` · ${mailSlurpDomains.length} dominios` : '';
       el.domainSelect.appendChild(
-        domainOption('mailslurp:long', '📬 MailSlurp · Bandeja 30+ días ⭐')
+        domainOption('mailslurp:long', `📬 MailSlurp · Bandeja 30+ días${filterLabel}${countLabel} ⭐`)
       );
     }
 
@@ -1753,6 +1769,7 @@
       ...grabMailDomains,
       ...mailsacDomains,
       ...inboxesDomains,
+      ...mailSlurpDomains,
       ...dropMailDomains.map(d => d.name)
     ];
 
@@ -1799,8 +1816,13 @@
       el.domainNote.textContent =
         `Mail.gw: @${domain}. Es útil para verificaciones rápidas.`;
     }else if (provider === 'mailslurp'){
-      el.domainNote.textContent =
-        'MailSlurp: bandeja privada y persistente para pruebas largas. Cada “Nuevo correo” crea otra bandeja; las anteriores se pueden recuperar escribiendo la dirección completa y tocando Actualizar.';
+      const available = mailSlurpDomains.length;
+      const matching = activeTldFilter === 'all'
+        ? available
+        : mailSlurpDomains.filter(domainPassesTld).length;
+      el.domainNote.textContent = available
+        ? `MailSlurp: ${available} dominio${available === 1 ? '' : 's'} disponible${available === 1 ? '' : 's'} para tu cuenta${activeTldFilter === 'all' ? '' : `; ${matching} coincide${matching === 1 ? '' : 'n'} con ${activeTldFilter}`}. Nuevo correo intenta cambiar de dominio cuando hay alternativa.`
+        : 'MailSlurp: bandeja privada y persistente para pruebas largas. Pulsa Dominios para consultar los dominios habilitados para tu cuenta.';
     }else if (provider === 'duckmail'){
       el.domainNote.textContent =
         `DuckMail: @${domain}. La cuenta se crea por 3 días y la bandeja se protege con token.`;
@@ -1860,12 +1882,15 @@
         requestJSON(`${MAILTM_API}/domains?page=1`, {timeoutMs:6000}),
         requestJSON(`${MAILGW_API}/domains?page=1`, {timeoutMs:6000}),
         workerBase ? workerJSON('/domains') : Promise.resolve(null),
+        workerBase && getMailSlurpGatewayKey()
+          ? mailSlurpWorkerJSON('/mailslurp/domains')
+          : Promise.resolve(null),
         dropToken
           ? dropMailGraphQL('query { domains { id name availableVia expiresAt } }')
           : Promise.resolve(null)
       ];
 
-      const [r123, rtm, rgw, rworker, rdrop] = await Promise.allSettled(requests);
+      const [r123, rtm, rgw, rworker, rslurp, rdrop] = await Promise.allSettled(requests);
 
       mail123Domains = r123.status === 'fulfilled'
         ? normalizeMail123Domains(r123.value)
@@ -1892,6 +1917,11 @@
       inboxesDomains =
         Array.isArray(workerData?.inboxes) ? workerData.inboxes : [];
 
+      mailSlurpDomains =
+        (rslurp.status === 'fulfilled' && Array.isArray(rslurp.value?.domains))
+          ? rslurp.value.domains
+          : [];
+
       // Temp-Mail Agency queda únicamente como compatibilidad de lectura de v31.
       tempAgencyDomains = [];
 
@@ -1911,7 +1941,7 @@
       if (force){
         const total = (mail123Domains.length || MAIL123_FALLBACK_DOMAINS.length)
           + mailTmDomains.length + mailGwDomains.length
-          + grabMailDomains.length + mailsacDomains.length + inboxesDomains.length + duckMailDomains.length + dropMailDomains.length;
+          + grabMailDomains.length + mailsacDomains.length + inboxesDomains.length + mailSlurpDomains.length + duckMailDomains.length + dropMailDomains.length;
 
         toast(`Dominios disponibles: ${total}`);
       }
@@ -1923,6 +1953,7 @@
       grabMailDomains = [...GRABMAIL_PUBLIC_DOMAINS];
       mailsacDomains = [];
       inboxesDomains = [];
+      mailSlurpDomains = [];
       tempAgencyDomains = [];
       guerrillaDomains = [...GUERRILLA_FALLBACK_DOMAINS];
 
@@ -2085,10 +2116,26 @@
       return createAccountMailbox(provider, domain);
     }
     if (provider === 'mailslurp'){
-      const data = await mailSlurpWorkerJSON('/mailslurp/new-long-inbox');
+      const previousDomain = box?.provider === 'mailslurp' ? (box.domain || '') : '';
+      const requestedTld = activeTldFilter || 'all';
+      const data = await mailSlurpWorkerJSON(
+        `/mailslurp/new-long-inbox?previousDomain=${encodeURIComponent(previousDomain)}&tld=${encodeURIComponent(requestedTld)}`
+      );
 
       if (!data?.address || !data?.inboxId){
         throw new Error('MailSlurp no devolvió una bandeja persistente válida.');
+      }
+
+      if (Array.isArray(data.domains)){
+        mailSlurpDomains = data.domains;
+        renderProviderSummary();
+        updateTldButtons();
+      }
+
+      if (Number(data.availableDomains || 0) === 1 && previousDomain){
+        toast(`MailSlurp solo ofrece 1 dominio para esta cuenta: @${data.selectedDomain || previousDomain}`);
+      }else if (data.domainChanged){
+        toast(`MailSlurp cambió el dominio a @${data.selectedDomain}`);
       }
 
       return {
@@ -3790,7 +3837,8 @@
 
     updateMailSlurpGatewayControls();
     await checkWorker();
-    populateDomainSelect();
+    domainsLoaded = false;
+    await loadDomains(true);
   });
 
   el.resetDomainHealthBtn.addEventListener('click', async () => {
@@ -3839,6 +3887,7 @@
     grabMailDomains = [...GRABMAIL_PUBLIC_DOMAINS];
     mailsacDomains = [];
     inboxesDomains = [];
+    mailSlurpDomains = [];
     tempAgencyDomains = [];
     guerrillaDomains = [...GUERRILLA_FALLBACK_DOMAINS];
 
