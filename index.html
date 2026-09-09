@@ -263,6 +263,13 @@
       margin-top:9px;color:#cbd5e4;font-size:11.5px;font-weight:750;
       display:flex;gap:7px;align-items:center;flex-wrap:wrap
     }
+    .reuse-info{
+      margin-top:8px;padding:8px 10px;border-radius:12px;border:1px solid var(--line);
+      background:rgba(255,255,255,.025);font-size:11px;line-height:1.45;color:#cbd5e5
+    }
+    .reuse-info.good{border-color:rgba(70,216,137,.25);background:rgba(70,216,137,.06);color:#c9f6d9}
+    .reuse-info.warn{border-color:rgba(255,190,70,.28);background:rgba(255,190,70,.06);color:#ffe0a3}
+    .reuse-info.bad{border-color:rgba(255,107,120,.28);background:rgba(255,107,120,.06);color:#ffbdc4}
     .status-dot{width:7px;height:7px;border-radius:50%;background:var(--ok);display:inline-block}
     .status-sep{color:#52617a}
     .otp-banner{
@@ -480,6 +487,9 @@
       <span class="status-sep">·</span>
       <span id="compactMailCount">0 correos</span>
     </div>
+    <div id="mailboxReuseInfo" class="reuse-info">
+      ♻️ Reutilización de esta bandeja: pendiente de confirmar.
+    </div>
 
     <div id="topOtpBanner" class="otp-banner">
       <div>
@@ -580,7 +590,7 @@
       <div>
         <div class="eyebrow">Configuración</div>
         <h3 id="settingsTitle">Gestores de correo</h3>
-        <div class="standalone-note">Versión <b id="appVersionLabel">v32.6</b></div>
+        <div class="standalone-note">Versión <b id="appVersionLabel">v32.7</b></div>
       </div>
       <button id="closeSettingsBtn" class="icon-btn" type="button">✕</button>
     </div>
@@ -682,7 +692,7 @@
     const DROPMAIL_TOKEN_KEY = 'correo_temporal_dropmail_token_v1';
   const WORKER_URL_KEY = 'correo_temporal_worker_url_v1';
   const DEFAULT_WORKER_URL = 'https://correo-temp-api.djkados11.workers.dev';
-  const APP_VERSION = '32.7';
+  const APP_VERSION = '32.8';
   const STORAGE_KEY = 'correo_temporal_mail123_v2';
   const HISTORY_KEY = 'correo_temporal_history_v2';
   const LEGACY_HISTORY_KEY = 'correo_temporal_history_v1';
@@ -756,7 +766,7 @@
     otpBox:$('otpBox'), otpCode:$('otpCode'), copyOtpBtn:$('copyOtpBtn'),
     links:$('links'), mailViewTitle:$('mailViewTitle'), mailFrameWrap:$('mailFrameWrap'), mailFrame:$('mailFrame'), domainSelect:$('domainSelect'), reloadDomainsBtn:$('reloadDomainsBtn'), domainNote:$('domainNote'), managerSummary:$('managerSummary'), openSettingsInlineBtn:$('openSettingsInlineBtn'), confirmModal:$('confirmModal'), confirmCancelBtn:$('confirmCancelBtn'), confirmOkBtn:$('confirmOkBtn'), confirmTitle:$('confirmTitle'), confirmText:$('confirmText'), settingsProviderSummary:$('settingsProviderSummary'), workerUrl:$('workerUrl'), saveWorkerUrlBtn:$('saveWorkerUrlBtn'), workerStatus:$('workerStatus'), dropmailToken:$('dropmailToken'), saveDropmailTokenBtn:$('saveDropmailTokenBtn'), dropmailStatusBadge:$('dropmailStatusBadge'), dropmailStatus:$('dropmailStatus'), resetDomainHealthBtn:$('resetDomainHealthBtn'), domainHealthList:$('domainHealthList'), domainHealthEmpty:$('domainHealthEmpty'),
     mailSlurpStatusBadge:$('mailSlurpStatusBadge'), mailSlurpStatus:$('mailSlurpStatus'),
-    mailSlurpGatewayKey:$('mailSlurpGatewayKey'), toggleMailSlurpGatewayBtn:$('toggleMailSlurpGatewayBtn'), copyMailSlurpGatewayBtn:$('copyMailSlurpGatewayBtn'), saveMailSlurpGatewayBtn:$('saveMailSlurpGatewayBtn'), compactStatusProvider:$('compactStatusProvider'), compactPollText:$('compactPollText'), compactMailCount:$('compactMailCount'), topOtpBanner:$('topOtpBanner'), topOtpCode:$('topOtpCode'), copyTopOtpBtn:$('copyTopOtpBtn'), footerManagers:$('footerManagers'), toast:$('toast')
+    mailSlurpGatewayKey:$('mailSlurpGatewayKey'), toggleMailSlurpGatewayBtn:$('toggleMailSlurpGatewayBtn'), copyMailSlurpGatewayBtn:$('copyMailSlurpGatewayBtn'), saveMailSlurpGatewayBtn:$('saveMailSlurpGatewayBtn'), compactStatusProvider:$('compactStatusProvider'), mailboxReuseInfo:$('mailboxReuseInfo'), compactPollText:$('compactPollText'), compactMailCount:$('compactMailCount'), topOtpBanner:$('topOtpBanner'), topOtpCode:$('topOtpCode'), copyTopOtpBtn:$('copyTopOtpBtn'), footerManagers:$('footerManagers'), toast:$('toast')
   };
 
   function save(){
@@ -785,6 +795,7 @@
       sessionId: source.sessionId || '',
       expiresAt: source.expiresAt || '',
       dropmailDomainId: source.dropmailDomainId || '',
+      dropmailRestoreKey: source.dropmailRestoreKey || '',
       sidToken: source.sidToken || '',
       inboxToken: source.inboxToken || '',
       clientUuid: source.clientUuid || '',
@@ -1108,6 +1119,7 @@
 
       el.providerBadge.textContent = providerName;
       el.compactStatusProvider.textContent = `Activo · ${providerName}`;
+      renderMailboxReuseInfo();
     }
     renderHistory();
   }
@@ -1352,7 +1364,9 @@
 
     if (data?.errors?.length){
       const first = data.errors[0];
-      throw new Error(first?.message || first?.extensions?.code || 'Error de DropMail');
+      const err = new Error(first?.message || first?.extensions?.code || 'Error de DropMail');
+      err.code = first?.extensions?.code || '';
+      throw err;
     }
     return data?.data || {};
   }
@@ -1400,6 +1414,126 @@
       provider === 'mailnesia' ? 'Mailnesia (antiguo)' :
       provider === 'guerrilla' ? 'Guerrilla Mail' :
       provider === 'dropmail' ? 'DropMail' : 'Mail123';
+  }
+
+
+  function reusePolicyFor(provider, domain, context={}){
+    const now = Number(context.now || Date.now());
+    const DAY = 24 * 60 * 60 * 1000;
+    const HOUR = 60 * 60 * 1000;
+    const MINUTE = 60 * 1000;
+
+    const remaining = (until, detailPrefix='') => {
+      const ts = Date.parse(String(until || ''));
+      if (!Number.isFinite(ts)) {
+        return {short:'⚠️ No garantizado', detail:'El proveedor no publica una fecha confirmada de reutilización.', level:'warn'};
+      }
+      const ms = ts - now;
+      if (ms <= 0) return {short:'⚠️ Vencida', detail:'La dirección o el dominio ya llegó a su fecha límite de reutilización.', level:'bad'};
+      let amount;
+      if (ms <= HOUR) amount = `${Math.ceil(ms / MINUTE)} min`;
+      else if (ms < 2 * DAY) amount = `${Math.ceil(ms / HOUR)} h`;
+      else amount = `${Math.ceil(ms / DAY)} días`;
+      return {
+        short:`♻️ ${amount}`,
+        detail:detailPrefix || `Reutilizable hasta ${new Date(ts).toLocaleDateString('es-CO')}.`,
+        level:'good'
+      };
+    };
+
+    if (provider === 'mailgw') {
+      return {short:'♻️ 10 min', detail:'Mail.gw elimina la dirección y la bandeja a los 10 minutos y no permite extenderla.', level:'warn'};
+    }
+
+    if (provider === 'duckmail') {
+      const createdAt = Number(context.createdAt || 0);
+      const until = context.expiresAt || (createdAt ? new Date(createdAt + 3 * DAY).toISOString() : '');
+      return until ? remaining(until) : {short:'♻️ 3 días', detail:'Esta app crea las cuentas DuckMail con 3 días de vigencia.', level:'good'};
+    }
+
+    if (provider === 'mailslurp') {
+      if (context.mailboxKnown) {
+        if (context.expiresAt) return remaining(context.expiresAt);
+        return {short:'♻️ Permanente', detail:'La bandeja MailSlurp actual no tiene fecha de expiración informada y puede reutilizarse mientras siga retenida en tu cuenta.', level:'good'};
+      }
+      return {short:'♻️ Se confirma al crear', detail:'MailSlurp define la duración en cada bandeja; la app mostrará el plazo real después de crearla.', level:'good'};
+    }
+
+    if (provider === 'dropmail') {
+      if (context.domainMetaKnown && context.domainExpiresAt === null) {
+        return {
+          short:'♻️ Permanente',
+          detail:context.restoreKey
+            ? 'Dominio permanente; la restoreKey queda guardada para restaurar la misma dirección después de que venza la sesión.'
+            : 'Dominio permanente; la dirección se puede restaurar si se conserva su restoreKey.',
+          level:'good'
+        };
+      }
+      if (context.domainMetaKnown && context.domainExpiresAt) {
+        const base = remaining(context.domainExpiresAt);
+        return {
+          ...base,
+          detail:`Dominio rotativo: la misma dirección puede restaurarse con restoreKey mientras @${domain} siga disponible; retiro previsto ${new Date(context.domainExpiresAt).toLocaleDateString('es-CO')}.`
+        };
+      }
+      return {short:'⚠️ No garantizado', detail:'No tengo la fecha de retiro de este dominio DropMail. Pulsa Dominios para actualizarla.', level:'warn'};
+    }
+
+    if (provider === 'inboxes') {
+      return {short:'♻️ Mientras dominio activo', detail:'La dirección puede reutilizarse mientras el dominio siga activo; Inboxes anuncia con 30 días de antelación los dominios que retirará.', level:'good'};
+    }
+    if (provider === 'mail123') {
+      return {short:'♻️ Sin límite publicado', detail:'Mail123 permite volver al mismo alias; no publica una fecha fija de caducidad de la dirección.', level:'good'};
+    }
+    if (provider === 'grabmail') {
+      return {short:'⚠️ No garantizado', detail:'GrabMail no publica una garantía de reutilización futura de la misma dirección; no confundir con la retención de mensajes.', level:'warn'};
+    }
+    if (provider === 'mailsac') {
+      return {short:'⚠️ No garantizado', detail:'Las bandejas públicas de Mailsac se reciclan y no tienen un plazo de reutilización garantizado.', level:'warn'};
+    }
+    if (provider === 'mailtm') {
+      return {short:'⚠️ No garantizado', detail:'Mail.tm no publica una duración garantizada para conservar la misma cuenta temporal; sus credenciales quedan guardadas solo en este dispositivo.', level:'warn'};
+    }
+    return {short:'⚠️ No garantizado', detail:'Este proveedor no publica una duración confirmada para reutilizar la misma dirección.', level:'warn'};
+  }
+
+  function reusePolicyForDomain(provider, domain, item=null){
+    if (provider === 'dropmail') {
+      const meta = item || dropMailDomains.find(d => d.name === domain) || null;
+      return reusePolicyFor(provider, domain, {
+        domainMetaKnown:!!meta,
+        domainExpiresAt:meta ? meta.expiresAt : undefined
+      });
+    }
+    return reusePolicyFor(provider, domain, {mailboxKnown:false});
+  }
+
+  function reusePolicyForCurrentBox(){
+    if (!box?.provider) return {short:'⚠️ No garantizado', detail:'No hay bandeja activa.', level:'warn'};
+    const domain = box.domain || normalizeEmail(box.address).split('@')[1] || '';
+    const dropMeta = box.provider === 'dropmail'
+      ? (dropMailDomains.find(d => d.name === domain) || null)
+      : null;
+    return reusePolicyFor(box.provider, domain, {
+      createdAt:box.createdAt || 0,
+      expiresAt:box.expiresAt || '',
+      mailboxKnown:true,
+      restoreKey:box.dropmailRestoreKey || '',
+      domainMetaKnown:box.provider === 'dropmail' ? !!dropMeta : false,
+      domainExpiresAt:dropMeta ? dropMeta.expiresAt : undefined
+    });
+  }
+
+  function renderMailboxReuseInfo(){
+    if (!el.mailboxReuseInfo) return;
+    if (!box?.address) {
+      el.mailboxReuseInfo.textContent = '';
+      return;
+    }
+    const policy = reusePolicyForCurrentBox();
+    el.mailboxReuseInfo.className = `reuse-info ${policy.level || ''}`.trim();
+    const short = policy.short.replace(/^♻️\s*/, '');
+    el.mailboxReuseInfo.textContent = `♻️ Reutilización de esta bandeja: ${short}. ${policy.detail}`;
   }
 
   const TLD_PRIORITY = [
@@ -1659,11 +1793,11 @@
     el.domainSelect.innerHTML = '';
 
     if (domainPassesTld('mail123.fr')){
-      el.domainSelect.appendChild(domainOption('mail123:mail123.fr', `@mail123.fr ⭐ Recomendado${domainHealthSuffix('mail123.fr')}`));
+      el.domainSelect.appendChild(domainOption('mail123:mail123.fr', `@mail123.fr ⭐ Recomendado · ${reusePolicyForDomain('mail123','mail123.fr').short}${domainHealthSuffix('mail123.fr')}`));
     }
     if ((mail123Domains.includes('mail123.site') || MAIL123_FALLBACK_DOMAINS.includes('mail123.site')) &&
         domainPassesTld('mail123.site')){
-      el.domainSelect.appendChild(domainOption('mail123:mail123.site', `@mail123.site ⭐ .site${domainHealthSuffix('mail123.site')}`));
+      el.domainSelect.appendChild(domainOption('mail123:mail123.site', `@mail123.site ⭐ .site · ${reusePolicyForDomain('mail123','mail123.site').short}${domainHealthSuffix('mail123.site')}`));
     }
 
     el.domainSelect.appendChild(domainOption(
@@ -1679,7 +1813,7 @@
       const filterLabel = activeTldFilter === 'all' ? '' : ` · ${activeTldFilter}`;
       const countLabel = mailSlurpDomains.length ? ` · ${mailSlurpDomains.length} dominios` : '';
       el.domainSelect.appendChild(
-        domainOption('mailslurp:long', `📬 MailSlurp · Bandeja 30+ días${filterLabel}${countLabel} ⭐`)
+        domainOption('mailslurp:long', `📬 MailSlurp · Bandeja 30+ días${filterLabel}${countLabel} · ${reusePolicyForDomain('mailslurp','').short} ⭐`)
       );
     }
 
@@ -1687,22 +1821,22 @@
     const groups = [
       {
         provider:'grabmail',
-        label:'GrabMail · 5 días',
+        label:'GrabMail',
         domains:sortDomains(grabMailDomains.filter(domainPassesTld))
       },
       {
         provider:'mailsac',
-        label:'Mailsac · API oficial',
+        label:'Mailsac',
         domains:sortDomains(mailsacDomains.filter(domainPassesTld))
       },
       {
         provider:'inboxes',
-        label:'Inboxes · RapidAPI',
+        label:'Inboxes',
         domains:sortDomains(inboxesDomains.filter(domainPassesTld))
       },
       {
         provider:'duckmail',
-        label:'DuckMail · hasta 3 días',
+        label:'DuckMail',
         domains:sortDomains(duckMailDomains.filter(domainPassesTld))
       },
       {
@@ -1716,7 +1850,7 @@
       },
       {
         provider:'mailgw',
-        label:'Mail.gw · 10 min',
+        label:'Mail.gw',
         domains:sortDomains(mailGwDomains.filter(domainPassesTld))
       },
       {
@@ -1726,7 +1860,7 @@
       },
       {
         provider:'dropmail',
-        label:'DropMail · permanentes/rotativos',
+        label:'DropMail',
         domains:sortDomains(dropMailDomains.filter(d => domainPassesTld(d.name)))
       }
     ];
@@ -1738,10 +1872,11 @@
 
       group.domains.forEach(item => {
         const domain = typeof item === 'string' ? item : item.name;
+        const reuse = reusePolicyForDomain(group.provider, domain, typeof item === 'string' ? null : item);
         optgroup.appendChild(
           domainOption(
             `${group.provider}:${domain}`,
-            `@${domain} · ${group.label}${domainHealthSuffix(domain)}`
+            `@${domain} · ${group.label} · ${reuse.short}${domainHealthSuffix(domain)}`
           )
         );
       });
@@ -1756,6 +1891,7 @@
     updateDomainNote();
     updateTldButtons();
     renderProviderSummary();
+    if (box?.address) renderMailboxReuseInfo();
   }
 
   function updateTldButtons(){
@@ -1855,6 +1991,12 @@
     }else{
       el.domainNote.textContent = `Mail123: @${domain}.`;
     }
+
+    const selectedItem = provider === 'dropmail'
+      ? (dropMailDomains.find(d => d.name === domain) || null)
+      : null;
+    const reuse = reusePolicyForDomain(provider, domain, selectedItem);
+    el.domainNote.textContent += ` ${reuse.short}. ${reuse.detail}`;
 
     const health = getDomainHealth(domain);
     if (health.blockedUntil > Date.now()){
@@ -2029,7 +2171,8 @@
 
     const data = await dropMailGraphQL(query);
     const session = data?.introduceSession;
-    const address = session?.addresses?.[0]?.address;
+    const addressNode = session?.addresses?.[0] || null;
+    const address = addressNode?.address;
 
     if (!session?.id || !address){
       throw new Error('DropMail no devolvió una bandeja válida.');
@@ -2042,6 +2185,7 @@
       sessionId:session.id,
       expiresAt:session.expiresAt || '',
       dropmailDomainId:item.id,
+      dropmailRestoreKey:addressNode?.restoreKey || '',
       createdAt:Date.now()
     };
   }
@@ -2269,8 +2413,50 @@
     };
   }
 
-  async function fetchDropMailMessages(){
+  async function restoreDropMailAddress(){
+    if (!box?.address || !box?.dropmailRestoreKey) {
+      throw new Error('Esta dirección DropMail no tiene restoreKey guardada y no puede restaurarse después de vencer la sesión.');
+    }
+
+    const sessionData = await dropMailGraphQL(
+      'mutation { introduceSession(input:{withAddress:false}) { id expiresAt } }'
+    );
+    const newSession = sessionData?.introduceSession;
+    if (!newSession?.id) throw new Error('DropMail no pudo crear una sesión nueva para restaurar la dirección.');
+
+    const restoreData = await dropMailGraphQL(`mutation {
+      restoreAddress(input:{
+        sessionId:${JSON.stringify(newSession.id)},
+        mailAddress:${JSON.stringify(box.address)},
+        restoreKey:${JSON.stringify(box.dropmailRestoreKey)}
+      }) {
+        address
+        restoreKey
+        domain { id name expiresAt }
+      }
+    }`);
+
+    const restored = restoreData?.restoreAddress;
+    if (!restored?.address) throw new Error('DropMail no pudo restaurar esta dirección.');
+
+    box.sessionId = newSession.id;
+    box.expiresAt = newSession.expiresAt || '';
+    box.dropmailRestoreKey = restored.restoreKey || box.dropmailRestoreKey;
+    box.domain = restored.domain?.name || box.domain || normalizeEmail(box.address).split('@')[1] || '';
+    box.dropmailDomainId = restored.domain?.id || box.dropmailDomainId || '';
+    save();
+    rememberAddress(box.address);
+    renderMailboxReuseInfo();
+    toast('Bandeja DropMail restaurada');
+    return true;
+  }
+
+  async function fetchDropMailMessages(allowRestore=true){
     if (!box?.sessionId){
+      if (allowRestore && box?.dropmailRestoreKey) {
+        await restoreDropMailAddress();
+        return fetchDropMailMessages(false);
+      }
       throw new Error('No tengo el identificador de esta sesión de DropMail en este dispositivo.');
     }
 
@@ -2278,6 +2464,7 @@
       session(id:${JSON.stringify(box.sessionId)}) {
         id
         expiresAt
+        addresses { address restoreKey }
         mails {
           id
           fromAddr
@@ -2291,21 +2478,36 @@
       }
     }`;
 
-    const data = await dropMailGraphQL(query);
-    const session = data?.session;
+    try {
+      const data = await dropMailGraphQL(query);
+      const session = data?.session;
 
-    if (!session){
-      throw new Error('La sesión de DropMail venció.');
+      if (!session){
+        if (allowRestore && box?.dropmailRestoreKey) {
+          await restoreDropMailAddress();
+          return fetchDropMailMessages(false);
+        }
+        throw new Error('La sesión de DropMail venció.');
+      }
+
+      const currentAddress = (session.addresses || [])
+        .find(item => normalizeEmail(item?.address) === normalizeEmail(box.address));
+      if (currentAddress?.restoreKey) box.dropmailRestoreKey = currentAddress.restoreKey;
+      box.expiresAt = session.expiresAt || box.expiresAt || '';
+      save();
+      renderMailboxReuseInfo();
+
+      const mapped = (session.mails || []).map(mapDropMailMessage);
+      dropMailMessageCache = new Map(mapped.map(m => [String(m.id), m]));
+      return mapped;
+    } catch (err) {
+      if (allowRestore && err?.code === 'SESSION_NOT_FOUND' && box?.dropmailRestoreKey) {
+        await restoreDropMailAddress();
+        return fetchDropMailMessages(false);
+      }
+      throw err;
     }
-
-    box.expiresAt = session.expiresAt || box.expiresAt || '';
-    save();
-
-    const mapped = (session.mails || []).map(mapDropMailMessage);
-    dropMailMessageCache = new Map(mapped.map(m => [String(m.id), m]));
-    return mapped;
   }
-
 
   function normalizeWorkerMessages(data){
     return Array.isArray(data?.messages) ? data.messages : (Array.isArray(data) ? data : []);

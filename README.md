@@ -1,4 +1,4 @@
-# Correo Temporal Mini v32.7 — PWA
+# Correo Temporal Mini v32.8 — PWA
 
 Esta versión está preparada para usarse e instalarse tanto en PC como en celular.
 
@@ -505,3 +505,18 @@ MailSlurp mantiene su espera directa sin polling.
 - CORS del Worker permite `X-DropMail-Token`.
 - Frontend: **v32.7**.
 - Worker: **Correo Temporal API v30**.
+
+
+## Cambio v32.8 — duración real de reutilización
+- El selector muestra la **reutilización de la misma dirección**, separada de la retención de mensajes.
+- Cuando un proveedor no publica una garantía, aparece **⚠️ No garantizado** en vez de inventar días.
+- DuckMail muestra 3 días porque la integración crea cuentas con esa vigencia.
+- Mail.gw muestra 10 minutos.
+- Inboxes muestra que es reutilizable mientras el dominio siga activo y recuerda el aviso previo de retiro.
+- Mail123 se marca como reutilizable sin límite fijo publicado.
+- MailSlurp usa el `expiresAt` real de cada bandeja; si no tiene fecha de expiración, se muestra Permanente.
+- DropMail distingue por dominio:
+  - `expiresAt = null` → **Permanente**.
+  - `expiresAt` con fecha → **Rotativo**, mostrando el tiempo restante.
+- La app guarda `restoreKey` de DropMail y puede restaurar la misma dirección después de que expire la sesión, siempre que el dominio siga disponible.
+- La bandeja activa muestra una línea propia con su política de reutilización.
