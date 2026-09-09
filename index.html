@@ -368,9 +368,6 @@
     }
     .provider-chip.ok{color:#c9f6d9;border-color:rgba(70,216,137,.25);background:rgba(70,216,137,.07)}
     .provider-chip.off{opacity:.55}
-    .dropmail-config{margin-top:7px;border:1px solid var(--line);border-radius:12px;background:#0d1628;padding:0 10px}
-    .dropmail-config summary{cursor:pointer;padding:8px 0;color:#cfdbed;font-size:10.5px;font-weight:800}
-    .dropmail-inner{padding:0 0 12px}
     .token-row{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:8px}
     .token-input{
       width:100%;min-height:40px;border:1px solid var(--line);border-radius:11px;background:#101a30;
@@ -573,7 +570,7 @@
       <div>
         <div class="eyebrow">Configuración</div>
         <h3 id="settingsTitle">Gestores de correo</h3>
-        <div class="standalone-note">Versión <b id="appVersionLabel">v30</b></div>
+        <div class="standalone-note">Versión <b id="appVersionLabel">v32</b></div>
       </div>
       <button id="closeSettingsBtn" class="icon-btn" type="button">✕</button>
     </div>
@@ -582,7 +579,7 @@
 
     <div class="settings-block">
       <details class="worker-config">
-        <summary>☁️ Cloudflare Worker · FreeCustom + Temp-Mail Agency + DuckMail</summary>
+        <summary>☁️ Cloudflare Worker · GrabMail + DuckMail + Mailsac + Inboxes</summary>
         <div class="worker-inner">
           <div class="worker-row">
             <input id="workerUrl" class="worker-input" type="url" placeholder="https://correo-temp-api.tuusuario.workers.dev" autocomplete="off" spellcheck="false" />
@@ -593,25 +590,7 @@
       </details>
     </div>
 
-    <div class="settings-block">
-      <div class="longmail-box">
-        <div class="longmail-title">
-          <b>⚡ FreeCustom.Email · dominios extra</b>
-          <span id="freeCustomStatusBadge" class="settings-chip">Sin configurar</span>
-        </div>
-        <div id="freeCustomStatus" class="longmail-status">
-          Requiere FREECUSTOM_API_KEY en Cloudflare. La API key real nunca se guarda en GitHub.
-        </div>
-        <div class="longmail-row">
-          <input id="freeCustomGatewayKey" class="worker-input" type="password"
-                 placeholder="Clave privada secundaria del Worker" autocomplete="off" />
-          <button id="saveFreeCustomGatewayBtn" class="btn ghost" type="button">Guardar clave</button>
-        </div>
-        <div class="health-help">
-          Recomendado: configura también FREECUSTOM_GATEWAY_KEY como Secret en Cloudflare y pega aquí la misma clave.
-        </div>
-      </div>
-    </div>
+</div>
 
     <div class="settings-block">
       <div class="longmail-box">
@@ -649,19 +628,24 @@
     </div>
 
     <div class="settings-block">
-      <details class="dropmail-config">
-        <summary>＋ DropMail · dominios rotativos</summary>
-        <div class="dropmail-inner">
-          <div class="token-row">
-            <input id="dropmailToken" class="token-input" type="password" placeholder="Pega tu token gratuito af_…" autocomplete="off" />
-            <button id="saveDropmailTokenBtn" class="btn ghost" type="button">Guardar token</button>
-          </div>
-          <div class="token-note">
-            DropMail requiere token gratuito. Se guarda solo en este dispositivo.
-            <a href="https://dropmail.me/api/" target="_blank" rel="noopener noreferrer">Obtener token</a>.
-          </div>
+      <div class="longmail-box">
+        <div class="longmail-title">
+          <b>⚡ DropMail · dominios permanentes y rotativos</b>
+          <span id="dropmailStatusBadge" class="settings-chip">Configurar</span>
         </div>
-      </details>
+        <div id="dropmailStatus" class="longmail-status">
+          Genera un token gratuito af_… para activar sus dominios en Automático.
+        </div>
+        <div class="longmail-row">
+          <input id="dropmailToken" class="worker-input" type="password"
+                 placeholder="Pega tu token gratuito af_…" autocomplete="off" />
+          <button id="saveDropmailTokenBtn" class="btn ghost" type="button">Guardar token</button>
+        </div>
+        <div class="health-help">
+          DropMail ofrece dominios permanentes para uso más largo y rotativos para pruebas rápidas.
+          Usa un token af_… nuevo. <a href="https://dropmail.me/api/" target="_blank" rel="noopener noreferrer">Generar token gratis</a>.
+        </div>
+      </div>
     </div>
   </div>
 </div>
@@ -689,7 +673,7 @@
   const DROPMAIL_TOKEN_KEY = 'correo_temporal_dropmail_token_v1';
   const WORKER_URL_KEY = 'correo_temporal_worker_url_v1';
   const DEFAULT_WORKER_URL = 'https://correo-temp-api.djkados11.workers.dev';
-  const APP_VERSION = '30.0';
+  const APP_VERSION = '32.0';
   const STORAGE_KEY = 'correo_temporal_mail123_v2';
   const HISTORY_KEY = 'correo_temporal_history_v2';
   const LEGACY_HISTORY_KEY = 'correo_temporal_history_v1';
@@ -699,16 +683,13 @@
   const AUTO_LAST_PROVIDER_KEY = 'correo_temporal_auto_last_provider_v1';
   const DOMAIN_HEALTH_KEY = 'correo_temporal_domain_health_v1';
   const MAILSLURP_GATEWAY_KEY_LOCAL = 'correo_temporal_mailslurp_gateway_v1';
-  const FREECUSTOM_GATEWAY_KEY_LOCAL = 'correo_temporal_freecustom_gateway_v1';
   const DOMAIN_BLOCK_AFTER_FAILURES = 2;
   const DOMAIN_BLOCK_MS = 24 * 60 * 60 * 1000;
   const DOMAIN_LONG_BLOCK_MS = 72 * 60 * 60 * 1000;
   const ACTIVE_POLL_MS = 30 * 1000;
   const HIDDEN_POLL_MS = 120 * 1000;
   const WAIT_POLL_MS = 15 * 1000;
-  const FREECUSTOM_ACTIVE_POLL_MS = 60 * 1000;
-  const FREECUSTOM_HIDDEN_POLL_MS = 120 * 1000;
-  const FREECUSTOM_WAIT_POLL_MS = 15 * 1000;
+  const QUOTA_WAIT_POLL_MS = 30 * 1000;
   const MAILSLURP_ACTIVE_POLL_MS = 60 * 1000;
   const MAILSLURP_WAIT_CHUNK_MS = 110 * 1000;
   const WAIT_DURATION_MS = 5 * 60 * 1000; // conservador para proveedores gratuitos
@@ -733,10 +714,12 @@
   let mailTmDomains = [];
   let mailGwDomains = [];
   let duckMailDomains = [];
-  let freeCustomDomains = [];
+  let grabMailDomains = [];
+  let mailsacDomains = [];
+  let inboxesDomains = [];
+  // Solo compatibilidad con bandejas antiguas de v31.
   let tempAgencyDomains = [];
   let mailSlurpReady = false;
-  let freeCustomReady = false;
   // Solo compatibilidad con bandejas antiguas: Mailnesia ya no genera correos nuevos.
   let mailnesiaDomains = [
     'mailnesia.com','airmailed.shop','bulkfinder.site','emaill.mom','mailed.click','poofmail.fit'
@@ -761,9 +744,7 @@
     modal:$('modal'), closeModalBtn:$('closeModalBtn'),
     modalSubject:$('modalSubject'), modalMeta:$('modalMeta'), modalBody:$('modalBody'),
     otpBox:$('otpBox'), otpCode:$('otpCode'), copyOtpBtn:$('copyOtpBtn'),
-    links:$('links'), mailViewTitle:$('mailViewTitle'), mailFrameWrap:$('mailFrameWrap'), mailFrame:$('mailFrame'), domainSelect:$('domainSelect'), reloadDomainsBtn:$('reloadDomainsBtn'), domainNote:$('domainNote'), managerSummary:$('managerSummary'), openSettingsInlineBtn:$('openSettingsInlineBtn'), confirmModal:$('confirmModal'), confirmCancelBtn:$('confirmCancelBtn'), confirmOkBtn:$('confirmOkBtn'), confirmTitle:$('confirmTitle'), confirmText:$('confirmText'), settingsProviderSummary:$('settingsProviderSummary'), workerUrl:$('workerUrl'), saveWorkerUrlBtn:$('saveWorkerUrlBtn'), workerStatus:$('workerStatus'), dropmailToken:$('dropmailToken'), saveDropmailTokenBtn:$('saveDropmailTokenBtn'), resetDomainHealthBtn:$('resetDomainHealthBtn'), domainHealthList:$('domainHealthList'), domainHealthEmpty:$('domainHealthEmpty'),
-    freeCustomStatusBadge:$('freeCustomStatusBadge'), freeCustomStatus:$('freeCustomStatus'),
-    freeCustomGatewayKey:$('freeCustomGatewayKey'), saveFreeCustomGatewayBtn:$('saveFreeCustomGatewayBtn'),
+    links:$('links'), mailViewTitle:$('mailViewTitle'), mailFrameWrap:$('mailFrameWrap'), mailFrame:$('mailFrame'), domainSelect:$('domainSelect'), reloadDomainsBtn:$('reloadDomainsBtn'), domainNote:$('domainNote'), managerSummary:$('managerSummary'), openSettingsInlineBtn:$('openSettingsInlineBtn'), confirmModal:$('confirmModal'), confirmCancelBtn:$('confirmCancelBtn'), confirmOkBtn:$('confirmOkBtn'), confirmTitle:$('confirmTitle'), confirmText:$('confirmText'), settingsProviderSummary:$('settingsProviderSummary'), workerUrl:$('workerUrl'), saveWorkerUrlBtn:$('saveWorkerUrlBtn'), workerStatus:$('workerStatus'), dropmailToken:$('dropmailToken'), saveDropmailTokenBtn:$('saveDropmailTokenBtn'), dropmailStatusBadge:$('dropmailStatusBadge'), dropmailStatus:$('dropmailStatus'), resetDomainHealthBtn:$('resetDomainHealthBtn'), domainHealthList:$('domainHealthList'), domainHealthEmpty:$('domainHealthEmpty'),
     mailSlurpStatusBadge:$('mailSlurpStatusBadge'), mailSlurpStatus:$('mailSlurpStatus'),
     mailSlurpGatewayKey:$('mailSlurpGatewayKey'), saveMailSlurpGatewayBtn:$('saveMailSlurpGatewayBtn'), compactStatusProvider:$('compactStatusProvider'), compactPollText:$('compactPollText'), compactMailCount:$('compactMailCount'), topOtpBanner:$('topOtpBanner'), topOtpCode:$('topOtpCode'), copyTopOtpBtn:$('copyTopOtpBtn'), footerManagers:$('footerManagers'), toast:$('toast')
   };
@@ -1106,8 +1087,10 @@
         box.provider === 'mailtm' ? 'Mail.tm' :
         box.provider === 'mailgw' ? 'Mail.gw' :
         box.provider === 'duckmail' ? 'DuckMail' :
-        box.provider === 'freecustom' ? 'FreeCustom' :
-        box.provider === 'tempagency' ? 'Temp-Mail Agency' :
+        box.provider === 'grabmail' ? 'GrabMail' :
+        box.provider === 'mailsac' ? 'Mailsac' :
+        box.provider === 'inboxes' ? 'Inboxes' :
+        box.provider === 'tempagency' ? 'Temp-Mail Agency (antiguo)' :
         box.provider === 'mailslurp' ? 'MailSlurp 30+ días' :
         box.provider === 'mailnesia' ? 'Mailnesia (antiguo)' :
         box.provider === 'guerrilla' ? 'Guerrilla' :
@@ -1141,6 +1124,11 @@
     'mail123.fr','mail456.fr','mail789.fr','mail123.cloud','mail1mail.com',
     'mail123.click','maildaft.com','mail123.com.br','daftmail.cloud',
     'mailtemp.fr','mail123.beer','mail123box.tech','mail123.pro','mail123.site'
+  ];
+
+  const GRABMAIL_PUBLIC_DOMAINS = [
+    'grabmail.io','mixozia.com','linqmail.com','plimbox.com',
+    'mavobox.com','plupmail.com','zonkbox.com','wazbox.com'
   ];
 
   const MAILNESIA_FALLBACK_DOMAINS = [
@@ -1228,27 +1216,6 @@
     });
   }
 
-  function getFreeCustomGatewayKey(){
-    return String(localStorage.getItem(FREECUSTOM_GATEWAY_KEY_LOCAL) || '').trim();
-  }
-
-  function setFreeCustomGatewayKey(value){
-    const key = String(value || '').trim();
-    if (key) localStorage.setItem(FREECUSTOM_GATEWAY_KEY_LOCAL, key);
-    else localStorage.removeItem(FREECUSTOM_GATEWAY_KEY_LOCAL);
-  }
-
-  function freeCustomWorkerJSON(path, options={}){
-    const gateway = getFreeCustomGatewayKey();
-    return workerJSON(path, {
-      ...options,
-      headers:{
-        ...(options.headers || {}),
-        ...(gateway ? {'X-FreeCustom-Gateway':gateway} : {})
-      }
-    });
-  }
-
   function getWorkerUrl(){
     const saved = String(localStorage.getItem(WORKER_URL_KEY) || '').trim().replace(/\/+$/,'');
     return saved || DEFAULT_WORKER_URL;
@@ -1278,11 +1245,15 @@
     try{
       const data = await requestJSON(`${base}/health`);
       const service = data?.service || 'Correo Temp API';
-      const duckMailReady = data?.capabilities?.duckmail === true;
-      freeCustomReady = data?.capabilities?.freecustom === true;
-      const tempAgencyReady = data?.capabilities?.tempagency === true;
-      mailSlurpReady = data?.capabilities?.mailslurp === true;
-      const mailSlurpWaitReady = data?.capabilities?.mailslurpWait === true;
+      const capabilities = data?.capabilities || {};
+      const duckMailReady = capabilities.duckmail === true;
+      const grabMailReady = capabilities.grabmail === true;
+      const hasV32Providers = Object.prototype.hasOwnProperty.call(capabilities, 'mailsac') &&
+        Object.prototype.hasOwnProperty.call(capabilities, 'inboxes');
+      const mailsacConfigured = capabilities.mailsac === true;
+      const inboxesConfigured = capabilities.inboxes === true;
+      mailSlurpReady = capabilities.mailslurp === true;
+      const mailSlurpWaitReady = capabilities.mailslurpWait === true;
 
       el.workerStatus.textContent = duckMailReady
         ? `Conectado · ${service}`
@@ -1292,23 +1263,17 @@
         ? 'worker-status ok'
         : 'worker-status bad';
 
-      if (freeCustomReady){
-        el.freeCustomStatusBadge.textContent = 'Disponible';
-        el.freeCustomStatusBadge.className = 'settings-chip ok';
-        el.freeCustomStatus.textContent = getFreeCustomGatewayKey()
-          ? `FreeCustom listo · ${freeCustomDomains.length || 'varios'} dominios del plan actual.`
-          : 'FreeCustom conectado. Si configuraste FREECUSTOM_GATEWAY_KEY, guarda aquí esa clave secundaria.';
-        el.freeCustomStatus.className = 'longmail-status ok';
-      }else{
-        el.freeCustomStatusBadge.textContent = 'Sin API key';
-        el.freeCustomStatusBadge.className = 'settings-chip bad';
-        el.freeCustomStatus.textContent = 'Añade FREECUSTOM_API_KEY como Secret en el Worker de Cloudflare.';
-        el.freeCustomStatus.className = 'longmail-status bad';
+      if (!grabMailReady){
+        el.workerStatus.textContent += ' · actualiza Worker para GrabMail';
+        el.workerStatus.className = 'worker-status bad';
       }
 
-      if (!tempAgencyReady){
-        el.workerStatus.textContent += ' · actualiza Worker para Temp-Mail Agency';
+      if (!hasV32Providers){
+        el.workerStatus.textContent += ' · actualiza Worker v24';
         el.workerStatus.className = 'worker-status bad';
+      }else{
+        if (!mailsacConfigured) el.workerStatus.textContent += ' · falta MAILSAC_API_KEY';
+        if (!inboxesConfigured) el.workerStatus.textContent += ' · falta INBOXES_RAPIDAPI_KEY';
       }
 
       if (mailSlurpReady){
@@ -1331,6 +1296,21 @@
         el.mailSlurpStatusBadge.className = 'settings-chip bad';
         el.mailSlurpStatus.textContent = 'Añade MAILSLURP_API_KEY al Worker de Cloudflare.';
         el.mailSlurpStatus.className = 'longmail-status bad';
+      }
+
+      const dropToken = getDropmailToken();
+      if (dropToken){
+        el.dropmailStatusBadge.textContent = dropMailDomains.length ? `Activo · ${dropMailDomains.length}` : 'Token guardado';
+        el.dropmailStatusBadge.className = dropMailDomains.length ? 'settings-chip ok' : 'settings-chip warn';
+        el.dropmailStatus.textContent = dropMailDomains.length
+          ? `${dropMailDomains.length} dominios disponibles. Los permanentes son mejores para reutilizar una dirección.`
+          : 'Token guardado. Pulsa Dominios para consultar el pool actual.';
+        el.dropmailStatus.className = dropMailDomains.length ? 'longmail-status ok' : 'longmail-status';
+      }else{
+        el.dropmailStatusBadge.textContent = 'Configurar';
+        el.dropmailStatusBadge.className = 'settings-chip';
+        el.dropmailStatus.textContent = 'Genera un token gratuito af_… para activar sus dominios en Automático.';
+        el.dropmailStatus.className = 'longmail-status';
       }
 
       if (domainsLoaded) populateDomainSelect();
@@ -1376,7 +1356,9 @@
     if (mailTmDomains.includes(domain)) return 'mailtm';
     if (mailGwDomains.includes(domain)) return 'mailgw';
     if (duckMailDomains.includes(domain)) return 'duckmail';
-    if (freeCustomDomains.includes(domain)) return 'freecustom';
+    if (grabMailDomains.includes(domain) || GRABMAIL_PUBLIC_DOMAINS.includes(domain)) return 'grabmail';
+    if (mailsacDomains.includes(domain) || domain === 'mailsac.com') return 'mailsac';
+    if (inboxesDomains.includes(domain)) return 'inboxes';
     if (tempAgencyDomains.includes(domain)) return 'tempagency';
     if (mailnesiaDomains.includes(domain)) return 'mailnesia';
     if (guerrillaDomains.includes(domain)) return 'guerrilla';
@@ -1391,8 +1373,10 @@
     return provider === 'mailtm' ? 'Mail.tm' :
       provider === 'mailgw' ? 'Mail.gw' :
       provider === 'duckmail' ? 'DuckMail' :
-      provider === 'freecustom' ? 'FreeCustom' :
-      provider === 'tempagency' ? 'Temp-Mail Agency' :
+      provider === 'grabmail' ? 'GrabMail' :
+      provider === 'mailsac' ? 'Mailsac' :
+      provider === 'inboxes' ? 'Inboxes' :
+      provider === 'tempagency' ? 'Temp-Mail Agency (antiguo)' :
       provider === 'mailslurp' ? 'MailSlurp 30+ días' :
       provider === 'mailnesia' ? 'Mailnesia (antiguo)' :
       provider === 'guerrilla' ? 'Guerrilla Mail' :
@@ -1612,8 +1596,9 @@
       ...mailTmDomains.map(domain => ({provider:'mailtm',domain})),
       ...mailGwDomains.map(domain => ({provider:'mailgw',domain})),
       ...duckMailDomains.map(domain => ({provider:'duckmail',domain})),
-      ...freeCustomDomains.map(domain => ({provider:'freecustom',domain})),
-      ...tempAgencyDomains.map(domain => ({provider:'tempagency',domain})),
+      ...grabMailDomains.map(domain => ({provider:'grabmail',domain})),
+      ...mailsacDomains.map(domain => ({provider:'mailsac',domain})),
+      ...inboxesDomains.map(domain => ({provider:'inboxes',domain})),
       ...dropMailDomains.map(item => ({provider:'dropmail',domain:item.name,domainId:item.id}))
     ];
 
@@ -1624,8 +1609,9 @@
     return [
       {label:'Mail123', count:(mail123Domains.length || MAIL123_FALLBACK_DOMAINS.length)},
       {label:'MailSlurp 30+ días', count:mailSlurpReady ? 1 : 0},
-      {label:'FreeCustom', count:freeCustomDomains.length},
-      {label:'Temp-Mail Agency', count:tempAgencyDomains.length},
+      {label:'GrabMail', count:grabMailDomains.length},
+      {label:'Mailsac', count:mailsacDomains.length},
+      {label:'Inboxes', count:inboxesDomains.length},
       {label:'DuckMail', count:duckMailDomains.length},
       {label:'Mail.tm', count:mailTmDomains.length},
       {label:'Mail.gw', count:mailGwDomains.length},
@@ -1675,14 +1661,19 @@
 
     const groups = [
       {
-        provider:'freecustom',
-        label:'FreeCustom',
-        domains:sortDomains(freeCustomDomains.filter(domainPassesTld))
+        provider:'grabmail',
+        label:'GrabMail · 5 días',
+        domains:sortDomains(grabMailDomains.filter(domainPassesTld))
       },
       {
-        provider:'tempagency',
-        label:'Temp-Mail Agency',
-        domains:sortDomains(tempAgencyDomains.filter(domainPassesTld))
+        provider:'mailsac',
+        label:'Mailsac · API oficial',
+        domains:sortDomains(mailsacDomains.filter(domainPassesTld))
+      },
+      {
+        provider:'inboxes',
+        label:'Inboxes · RapidAPI',
+        domains:sortDomains(inboxesDomains.filter(domainPassesTld))
       },
       {
         provider:'duckmail',
@@ -1710,7 +1701,7 @@
       },
       {
         provider:'dropmail',
-        label:'DropMail · rotativos',
+        label:'DropMail · permanentes/rotativos',
         domains:sortDomains(dropMailDomains.filter(d => domainPassesTld(d.name)))
       }
     ];
@@ -1750,8 +1741,9 @@
       ...mailTmDomains,
       ...mailGwDomains,
       ...duckMailDomains,
-      ...freeCustomDomains,
-      ...tempAgencyDomains,
+      ...grabMailDomains,
+      ...mailsacDomains,
+      ...inboxesDomains,
       ...dropMailDomains.map(d => d.name)
     ];
 
@@ -1803,12 +1795,18 @@
     }else if (provider === 'duckmail'){
       el.domainNote.textContent =
         `DuckMail: @${domain}. La cuenta se crea por 3 días y la bandeja se protege con token.`;
-    }else if (provider === 'freecustom'){
+    }else if (provider === 'grabmail'){
       el.domainNote.textContent =
-        `FreeCustom: @${domain}. Dominio del plan actual; la bandeja usa el Worker para mantener la API key protegida.`;
+        `GrabMail: @${domain}. No requiere cuenta ni API key; los mensajes se conservan 5 días.`;
+    }else if (provider === 'mailsac'){
+      el.domainNote.textContent =
+        `Mailsac: @${domain}. API oficial; esta bandeja pública se consulta solo al actualizar o mientras esperas un código para ahorrar cuota.`;
+    }else if (provider === 'inboxes'){
+      el.domainNote.textContent =
+        `Inboxes: @${domain}. RapidAPI; se consulta manualmente o mientras Esperar código está activo para proteger el límite mensual.`;
     }else if (provider === 'tempagency'){
       el.domainNote.textContent =
-        `Temp-Mail Agency: @${domain}. Dominio activo consultado en tiempo real con alias personalizado.`;
+        'Temp-Mail Agency: bandeja antigua conservada solo para lectura.';
     }else if (provider === 'mailnesia'){
       el.domainNote.textContent = 'Mailnesia: bandeja antigua conservada solo para lectura.';
     }else if (provider === 'guerrilla'){
@@ -1816,7 +1814,7 @@
         `Guerrilla Mail: @${domain}. La bandeja usa una sesión temporal y sus mensajes duran aproximadamente 60 minutos.`;
     }else if (provider === 'dropmail'){
       el.domainNote.textContent =
-        `DropMail: @${domain}. Sus dominios rotativos pueden cambiar con el tiempo; la sesión se mantiene viva mientras se consulte.`;
+        `DropMail: @${domain}. Los dominios permanentes son adecuados para reutilizar la dirección; los rotativos son más frescos para pruebas cortas.`;
     }else if (provider === 'mailtm'){
       el.domainNote.textContent =
         `Mail.tm: @${domain}. La app guarda sus credenciales temporales para reabrir esta bandeja en el mismo dispositivo.`;
@@ -1874,19 +1872,25 @@
 
       const workerData = (rworker.status === 'fulfilled' && rworker.value) ? rworker.value : null;
 
-      freeCustomDomains =
-        Array.isArray(workerData?.freecustom) ? workerData.freecustom : [];
+      grabMailDomains =
+        Array.isArray(workerData?.grabmail) && workerData.grabmail.length
+          ? workerData.grabmail
+          : [...GRABMAIL_PUBLIC_DOMAINS];
 
-      tempAgencyDomains =
-        Array.isArray(workerData?.tempagency) ? workerData.tempagency : [];
+      mailsacDomains =
+        Array.isArray(workerData?.mailsac) ? workerData.mailsac : [];
+
+      inboxesDomains =
+        Array.isArray(workerData?.inboxes) ? workerData.inboxes : [];
+
+      // Temp-Mail Agency queda únicamente como compatibilidad de lectura de v31.
+      tempAgencyDomains = [];
 
       duckMailDomains =
         Array.isArray(workerData?.duckmail) ? workerData.duckmail : [];
 
-      guerrillaDomains =
-        Array.isArray(workerData?.guerrilla) && workerData.guerrilla.length
-          ? workerData.guerrilla
-          : [...GUERRILLA_FALLBACK_DOMAINS];
+      // Guerrilla queda solo para reabrir bandejas antiguas guardadas localmente.
+      guerrillaDomains = [...GUERRILLA_FALLBACK_DOMAINS];
 
       dropMailDomains = (rdrop.status === 'fulfilled' && rdrop.value)
         ? normalizeDropMailDomains(rdrop.value)
@@ -1898,7 +1902,7 @@
       if (force){
         const total = (mail123Domains.length || MAIL123_FALLBACK_DOMAINS.length)
           + mailTmDomains.length + mailGwDomains.length
-          + freeCustomDomains.length + tempAgencyDomains.length + duckMailDomains.length + guerrillaDomains.length + dropMailDomains.length;
+          + grabMailDomains.length + mailsacDomains.length + inboxesDomains.length + duckMailDomains.length + dropMailDomains.length;
 
         toast(`Dominios disponibles: ${total}`);
       }
@@ -1907,7 +1911,9 @@
 
       // Mail123 conserva un pool local; los proveedores de Worker se recuperan al reintentar.
       mail123Domains = [...MAIL123_FALLBACK_DOMAINS];
-      freeCustomDomains = [];
+      grabMailDomains = [...GRABMAIL_PUBLIC_DOMAINS];
+      mailsacDomains = [];
+      inboxesDomains = [];
       tempAgencyDomains = [];
       guerrillaDomains = [...GUERRILLA_FALLBACK_DOMAINS];
 
@@ -2001,21 +2007,6 @@
   }
 
 
-  async function createGuerrillaMailbox(domain){
-    const alias = shortAlias();
-    const data = await workerJSON(`/guerrilla/create?alias=${encodeURIComponent(alias)}&domain=${encodeURIComponent(domain)}`);
-
-    if (!data?.sidToken) throw new Error('Guerrilla Mail no devolvió una sesión válida.');
-
-    return {
-      provider:'guerrilla',
-      address:`${alias}@${domain}`,
-      domain,
-      sidToken:data.sidToken,
-      createdAt:Date.now()
-    };
-  }
-
   async function buildShortMailbox(){
     let selection = el.domainSelect.value || 'mail123:mail123.fr';
 
@@ -2100,29 +2091,36 @@
         createdAt:data.createdAt ? new Date(data.createdAt).getTime() : Date.now()
       };
     }
-    if (provider === 'freecustom'){
+    if (provider === 'grabmail'){
       const alias = shortAlias();
-      const data = await freeCustomWorkerJSON(`/freecustom/create?alias=${encodeURIComponent(alias)}&domain=${encodeURIComponent(domain)}`);
-      if (!data?.address) throw new Error('FreeCustom no devolvió una bandeja válida.');
+      const data = await workerJSON(`/grabmail/create?alias=${encodeURIComponent(alias)}&domain=${encodeURIComponent(domain)}`);
+      if (!data?.address) throw new Error('GrabMail no devolvió una bandeja válida.');
       return {
-        provider:'freecustom',
+        provider:'grabmail',
         address:normalizeEmail(data.address),
         domain,
         createdAt:Date.now()
       };
     }
-    if (provider === 'tempagency'){
+    if (provider === 'mailsac'){
       const alias = shortAlias();
-      const data = await workerJSON(`/tempagency/create?alias=${encodeURIComponent(alias)}&domain=${encodeURIComponent(domain)}`);
-      if (!data?.address || !data?.clientUuid || !data?.emailId){
-        throw new Error('Temp-Mail Agency no devolvió una bandeja válida.');
-      }
+      const data = await workerJSON(`/mailsac/create?alias=${encodeURIComponent(alias)}`);
+      if (!data?.address) throw new Error('Mailsac no devolvió una bandeja válida.');
       return {
-        provider:'tempagency',
+        provider:'mailsac',
+        address:normalizeEmail(data.address),
+        domain:normalizeEmail(data.address).split('@')[1] || domain,
+        createdAt:Date.now()
+      };
+    }
+    if (provider === 'inboxes'){
+      const alias = shortAlias();
+      const data = await workerJSON(`/inboxes/create?alias=${encodeURIComponent(alias)}&domain=${encodeURIComponent(domain)}`);
+      if (!data?.address) throw new Error('Inboxes no devolvió una bandeja válida.');
+      return {
+        provider:'inboxes',
         address:normalizeEmail(data.address),
         domain,
-        clientUuid:data.clientUuid,
-        emailId:data.emailId,
         createdAt:Date.now()
       };
     }
@@ -2267,8 +2265,18 @@
       return fetchDropMailMessages();
     }
 
-    if (box?.provider === 'freecustom'){
-      const data = await freeCustomWorkerJSON(`/freecustom/messages?address=${encodeURIComponent(box.address)}`);
+    if (box?.provider === 'grabmail'){
+      const data = await workerJSON(`/grabmail/messages?address=${encodeURIComponent(box.address)}`);
+      return normalizeWorkerMessages(data);
+    }
+
+    if (box?.provider === 'mailsac'){
+      const data = await workerJSON(`/mailsac/messages?address=${encodeURIComponent(box.address)}`);
+      return normalizeWorkerMessages(data);
+    }
+
+    if (box?.provider === 'inboxes'){
+      const data = await workerJSON(`/inboxes/messages?address=${encodeURIComponent(box.address)}`);
       return normalizeWorkerMessages(data);
     }
 
@@ -2319,8 +2327,18 @@
       return messages.find(m => String(m.id) === String(id)) || {};
     }
 
-    if (box?.provider === 'freecustom'){
-      const data = await freeCustomWorkerJSON(`/freecustom/message?address=${encodeURIComponent(box.address)}&id=${encodeURIComponent(id)}`);
+    if (box?.provider === 'grabmail'){
+      const data = await workerJSON(`/grabmail/message?address=${encodeURIComponent(box.address)}&id=${encodeURIComponent(id)}`);
+      return data?.message || data || {};
+    }
+
+    if (box?.provider === 'mailsac'){
+      const data = await workerJSON(`/mailsac/message?address=${encodeURIComponent(box.address)}&id=${encodeURIComponent(id)}`);
+      return data?.message || data || {};
+    }
+
+    if (box?.provider === 'inboxes'){
+      const data = await workerJSON(`/inboxes/message?id=${encodeURIComponent(id)}`);
       return data?.message || data || {};
     }
 
@@ -2502,9 +2520,6 @@
       console.error(err);
 
       let message = err?.message || 'Ocurrió un error al generar el correo.';
-      if (/Guerrilla/i.test(message)){
-        message = 'Guerrilla Mail no pudo crear la bandeja. Verifica que el Cloudflare Worker esté actualizado a API v17 y vuelve a intentar.';
-      }
 
       await pageAlert({
         title:'No pude generar el correo',
@@ -2542,7 +2557,7 @@
         }
         box = {
           address:typed,
-          provider:provider === 'mailnesia' ? 'mailnesia' : (provider === 'freecustom' ? 'freecustom' : 'mail123'),
+          provider:['mailnesia','grabmail','mailsac','inboxes','mail123'].includes(provider) ? provider : 'mail123',
           domain:typed.split('@')[1] || '',
           createdAt:Date.now()
         };
@@ -3478,8 +3493,8 @@
         waitTimer = setInterval(() => refresh(false), WAIT_POLL_MS);
       });
     }else{
-      const waitPollMs = box?.provider === 'freecustom'
-        ? FREECUSTOM_WAIT_POLL_MS
+      const waitPollMs = (box?.provider === 'mailsac' || box?.provider === 'inboxes')
+        ? QUOTA_WAIT_POLL_MS
         : WAIT_POLL_MS;
       waitTimer = setInterval(() => refresh(false), waitPollMs);
     }
@@ -3532,10 +3547,8 @@
   }
 
   function currentPollInterval(){
-    if (box?.provider === 'freecustom'){
-      return document.visibilityState === 'visible'
-        ? FREECUSTOM_ACTIVE_POLL_MS
-        : FREECUSTOM_HIDDEN_POLL_MS;
+    if (box?.provider === 'mailsac' || box?.provider === 'inboxes'){
+      return null;
     }
 
     if (box?.provider === 'mailslurp'){
@@ -3550,18 +3563,18 @@
   }
 
   function updateLivePill(){
-    const isFreeCustom = box?.provider === 'freecustom';
     const isMailSlurp = box?.provider === 'mailslurp';
+    const isQuotaProvider = box?.provider === 'mailsac' || box?.provider === 'inboxes';
 
     let visibleLabel = 'En vivo · 30 s';
     let compactLabel = 'En vivo 30 s';
 
-    if (isFreeCustom){
-      visibleLabel = 'En vivo · 60 s';
-      compactLabel = 'En vivo 60 s';
-    }else if (isMailSlurp){
+    if (isMailSlurp){
       visibleLabel = waitUntil > Date.now() ? 'Esperando correo' : 'En vivo · 60 s';
       compactLabel = waitUntil > Date.now() ? 'Esperando correo' : 'En vivo 60 s';
+    }else if (isQuotaProvider){
+      visibleLabel = waitUntil > Date.now() ? 'Esperando · 30 s' : 'Manual · ahorra cuota';
+      compactLabel = waitUntil > Date.now() ? 'Esperando 30 s' : 'Manual · ahorra cuota';
     }
 
     if (el.compactPollText){
@@ -3582,12 +3595,19 @@
 
   function scheduleNextPoll(){
     if (pollTimer) clearTimeout(pollTimer);
+    const interval = currentPollInterval();
+    if (!interval){
+      pollTimer = null;
+      updateLivePill();
+      return;
+    }
+
     pollTimer = setTimeout(async () => {
       if (box?.address){
         await refresh(false);
       }
       scheduleNextPoll();
-    }, currentPollInterval());
+    }, interval);
   }
 
   function startPolling(){
@@ -3643,16 +3663,6 @@
   function closeSettings(){
     el.settingsModal.classList.remove('show');
   }
-
-  el.freeCustomGatewayKey.value = getFreeCustomGatewayKey();
-
-  el.saveFreeCustomGatewayBtn.addEventListener('click', async () => {
-    const value = String(el.freeCustomGatewayKey.value || '').trim();
-    setFreeCustomGatewayKey(value);
-    toast(value ? 'Clave privada de FreeCustom guardada' : 'Clave privada de FreeCustom eliminada');
-    await checkWorker();
-    populateDomainSelect();
-  });
 
   el.mailSlurpGatewayKey.value = getMailSlurpGatewayKey();
 
@@ -3713,9 +3723,11 @@
 
     setWorkerUrl(value);
     domainsLoaded = false;
-    freeCustomDomains = [];
+    grabMailDomains = [...GRABMAIL_PUBLIC_DOMAINS];
+    mailsacDomains = [];
+    inboxesDomains = [];
     tempAgencyDomains = [];
-    guerrillaDomains = [];
+    guerrillaDomains = [...GUERRILLA_FALLBACK_DOMAINS];
 
     const ok = await checkWorker();
     if (ok){
@@ -3742,7 +3754,8 @@
 
     try{
       await loadDomains(true);
-      toast(token ? 'DropMail activado' : 'Token de DropMail eliminado');
+      await checkWorker();
+      toast(token ? `DropMail activado · ${dropMailDomains.length} dominios` : 'Token de DropMail eliminado');
     }catch(err){
       toast(err?.message || 'No pude activar DropMail');
     }

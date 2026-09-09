@@ -1,4 +1,4 @@
-# Correo Temporal Mini v30 — PWA
+# Correo Temporal Mini v32 — PWA
 
 Esta versión está preparada para usarse e instalarse tanto en PC como en celular.
 
@@ -381,3 +381,62 @@ El plan Free actual limita a 1.000 solicitudes/mes, 1 req/s y 10 bandejas activa
 - MailSlurp conserva una comprobación normal cada 60 segundos cuando no está en modo Esperar código.
 - Worker: **Correo Temporal API v22**.
 - Frontend: **v30**.
+
+
+## Cambio v31 — proveedores depurados
+- **FreeCustom.Email eliminado** por no entregar dominios en la integración real.
+- **Guerrilla Mail eliminado para correos nuevos**. Se conserva únicamente lectura legacy de sesiones guardadas anteriormente.
+- **GrabMail añadido** con 8 dominios públicos oficiales y retención de mensajes de 5 días. No requiere cuenta ni API key.
+- **DropMail promovido a proveedor principal**. Su configuración ya no queda escondida y sus dominios permanentes/rotativos entran al modo Automático cuando hay un token `af_…` válido.
+- **Temp-Mail Agency** permanece integrado, pero solo aparece cuando realmente devuelve dominios activos.
+- **DuckMail** continúa como proveedor principal dinámico.
+- `/domains` ya no devuelve FreeCustom ni Guerrilla.
+- Nuevo endpoint seguro `/diagnostics/providers` para ver estado HTTP, número de dominios y errores de proveedores sin revelar Secrets.
+- `/health` pasa a **Correo Temporal API v23**.
+- CORS del Worker permite correctamente `X-MailSlurp-Gateway`.
+- Frontend visible como **v31**.
+
+### Proveedores principales v31
+1. Mail123
+2. DuckMail
+3. GrabMail
+4. DropMail (con token af_)
+5. Mail.tm / Mail.gw cuando tengan dominios
+6. Temp-Mail Agency cuando su API entregue dominios
+7. MailSlurp 30+ días para pruebas largas
+
+### Limpieza de Cloudflare
+Los Secrets `FREECUSTOM_API_KEY` y `FREECUSTOM_GATEWAY_KEY` ya no son utilizados por la v32 y pueden eliminarse de Cloudflare.
+
+
+## v32 — Mailsac + Inboxes
+
+Proveedores activos para correos nuevos:
+
+- Mail123
+- DuckMail
+- GrabMail
+- DropMail
+- Mail.tm
+- Mail.gw
+- Mailsac
+- Inboxes
+- MailSlurp 30+ días (separado de Automático)
+
+Temp-Mail Agency, Mailnesia y Guerrilla se conservan únicamente para lectura de bandejas antiguas cuando exista información local suficiente.
+
+### Cloudflare — variables nuevas
+
+Configura en `correo-temp-api` → Settings → Variables and Secrets:
+
+- `MAILSAC_API_KEY` — Secret. Se obtiene en Mailsac → Dashboard → Credentials → API Keys & Users.
+- `INBOXES_RAPIDAPI_KEY` — Secret. Se obtiene al suscribirse a Inboxes.com en RapidAPI.
+- `INBOXES_RAPIDAPI_HOST` — Variable normal. Valor recomendado actual: `inboxes-com.p.rapidapi.com`.
+
+El Worker pasa a `Correo Temporal API v24`.
+
+### Control de cuota
+
+Mailsac e Inboxes no hacen polling automático en segundo plano. La interfaz muestra `Manual · ahorra cuota`.
+Al pulsar `Esperar código`, se revisan cada 30 segundos durante un máximo de 5 minutos.
+MailSlurp mantiene su espera directa sin polling.

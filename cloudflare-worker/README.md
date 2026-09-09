@@ -1,36 +1,50 @@
-# Cloudflare Worker — Correo Temporal v16
+# Cloudflare Worker — Correo Temporal API v24
 
-## Qué agrega
-Este Worker sirve como puente para:
-- Mailnesia
-- Guerrilla Mail
+## Proveedores activos
+- GrabMail — 8 dominios públicos, sin API key.
+- DuckMail — dominios dinámicos.
+- Mailsac — `mailsac.com`, API oficial con `MAILSAC_API_KEY`.
+- Inboxes — dominios dinámicos mediante RapidAPI con `INBOXES_RAPIDAPI_KEY`.
+- MailSlurp — bandeja 30+ días y espera directa.
+- DropMail se consulta directamente desde el navegador con token `af_…`.
+
+## Compatibilidad legacy
+- Temp-Mail Agency — solo lectura de bandejas creadas por v31 cuando la sesión quedó guardada.
+- Mailnesia — solo lectura legacy.
+- Guerrilla Mail — solo lectura legacy; nunca crea correos nuevos.
+
+## Rutas principales
+- `GET /health`
+- `GET /domains`
+- `GET /diagnostics/providers`
+- `GET /grabmail/create?alias=...&domain=...`
+- `GET /grabmail/messages?address=...`
+- `GET /grabmail/message?address=...&id=...`
+- `GET /mailsac/create?alias=...`
+- `GET /mailsac/messages?address=...`
+- `GET /mailsac/message?address=...&id=...`
+- `GET /inboxes/create?alias=...&domain=...`
+- `GET /inboxes/messages?address=...`
+- `GET /inboxes/message?id=...`
+- `GET /duckmail/create?alias=...&domain=...`
+- `GET /duckmail/messages?token=...`
+- `GET /duckmail/message?token=...&id=...`
+- `GET /mailslurp/long-inbox`
+- `GET /mailslurp/wait?...`
+
+## Variables / Secrets de Cloudflare
+- `MAILSLURP_API_KEY` — Secret.
+- `MAILSLURP_GATEWAY_KEY` — Secret recomendado.
+- `MAILSAC_API_KEY` — Secret.
+- `INBOXES_RAPIDAPI_KEY` — Secret.
+- `INBOXES_RAPIDAPI_HOST` — variable normal; valor actual recomendado: `inboxes-com.p.rapidapi.com`.
+
+`FREECUSTOM_API_KEY` y `FREECUSTOM_GATEWAY_KEY` ya no se utilizan y pueden eliminarse.
 
 ## Desplegar
-1. Cloudflare Dashboard → Workers & Pages.
-2. Create → Worker.
-3. Abra el editor.
-4. Reemplace el código por `worker.js`.
-5. Deploy.
-6. Copie la URL `https://....workers.dev`.
-7. En Correo Temporal, abra **Cloudflare Worker · Mailnesia + Guerrilla Mail**.
-8. Pegue la URL y pulse **Conectar Worker**.
-
-No necesita variables de entorno ni secretos.
-
-
-## API v21 — FreeCustom + Temp-Mail Agency
-
-Nuevas rutas:
-- `GET /freecustom/create?alias=...&domain=...`
-- `GET /freecustom/messages?address=...`
-- `GET /freecustom/message?address=...&id=...`
-- `GET /tempagency/create?alias=...&domain=...`
-- `GET /tempagency/messages?uuid=...&emailId=...`
-- `GET /tempagency/message?uuid=...&emailId=...&id=...`
-
-Secrets:
-- `FREECUSTOM_API_KEY` — requerido para activar FreeCustom.
-- `FREECUSTOM_GATEWAY_KEY` — recomendado para proteger el uso de la cuota.
-- Se mantienen los Secrets de MailSlurp si usa la bandeja 30+ días.
-
-Mailnesia ya no se expone en `/domains`; las rutas antiguas de lectura se conservan solo por compatibilidad.
+1. Cloudflare Dashboard → Workers & Pages → `correo-temp-api`.
+2. **Edit code**.
+3. Reemplace el código por `worker.js`.
+4. **Deploy**.
+5. Abra `/health` y confirme `Correo Temporal API v24`.
+6. Abra `/diagnostics/providers` para revisar Mailsac, Inboxes, DuckMail y GrabMail sin mostrar Secrets.

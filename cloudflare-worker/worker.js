@@ -27,7 +27,7 @@ function corsHeaders() {
   return {
     "Access-Control-Allow-Origin": "*",
     "Access-Control-Allow-Methods": "GET,POST,OPTIONS",
-    "Access-Control-Allow-Headers": "Content-Type",
+    "Access-Control-Allow-Headers": "Content-Type, X-MailSlurp-Gateway",
     "Cache-Control": "no-store"
   };
 }
@@ -447,39 +447,24 @@ async function duckMessage(token, id) {
 }
 
 
-const FREECUSTOM_API = "https://api2.freecustom.email";
-const TEMPAGENCY_API = "https://api.temp-mail.agency/api";
-const TEMPAGENCY_APP_UUID = "a5x-cj6a-ka1q";
 
-function requireFreeCustomGateway(request, env) {
-  if (!env.FREECUSTOM_API_KEY) {
-    const err = new Error("FREECUSTOM_API_KEY no configurada");
-    err.status = 503;
-    throw err;
-  }
+const GRABMAIL_API = "https://grabmail.io/api/v1";
+const GRABMAIL_PUBLIC_DOMAINS = [
+  "grabmail.io","mixozia.com","linqmail.com","plimbox.com",
+  "mavobox.com","plupmail.com","zonkbox.com","wazbox.com"
+];
 
-  if (env.FREECUSTOM_GATEWAY_KEY) {
-    const provided = request.headers.get("X-FreeCustom-Gateway") || "";
-    if (provided !== env.FREECUSTOM_GATEWAY_KEY) {
-      const err = new Error("Clave privada FreeCustom inválida");
-      err.status = 401;
-      throw err;
-    }
-  }
+function grabMailDomainAllowed(domain) {
+  return GRABMAIL_PUBLIC_DOMAINS.includes(String(domain || "").toLowerCase());
 }
 
-async function freeCustomRequest(env, path, options={}) {
-  if (!env.FREECUSTOM_API_KEY) {
-    throw new Error("FREECUSTOM_API_KEY no configurada");
-  }
-
-  const res = await fetch(`${FREECUSTOM_API}${path}`, {
+async function grabMailRequest(path, options={}) {
+  const res = await fetch(`${GRABMAIL_API}${path}`, {
     ...options,
     headers:{
       "Accept":"application/json",
-      "Authorization":`Bearer ${env.FREECUSTOM_API_KEY}`,
-      ...(options.body ? {"Content-Type":"application/json"} : {}),
-      ...(options.headers || {})
+      ...(options.headers || {}),
+      "User-Agent":"CorreoTemporalWorker/1.0"
     }
   });
 
@@ -488,52 +473,35 @@ async function freeCustomRequest(env, path, options={}) {
   try { data = raw ? JSON.parse(raw) : null; } catch {}
 
   if (!res.ok) {
-    const err = new Error(
-      data?.message || data?.error || data?.detail || `FreeCustom HTTP ${res.status}`
-    );
+    const err = new Error(data?.error || data?.message || `GrabMail HTTP ${res.status}`);
     err.status = res.status;
-    err.data = data;
     throw err;
   }
-  return data;
+  return data || {};
 }
 
-async function getFreeCustomDomains(env) {
-  if (!env.FREECUSTOM_API_KEY) return [];
-  try {
-    const data = await freeCustomRequest(env, "/v1/domains");
-    const rows = Array.isArray(data?.data) ? data.data : [];
-    return [...new Set(rows
-      .filter(item => item?.domain && item?.expired !== true)
-      .map(item => String(item.domain).toLowerCase()))];
-  } catch {
-    return [];
-  }
-}
-
-async function freeCustomCreate(request, env, alias, domain) {
-  requireFreeCustomGateway(request, env);
-  const domains = await getFreeCustomDomains(env);
-  if (!domains.includes(domain)) {
-    const err = new Error("Dominio FreeCustom no disponible");
+function grabMailCreate(alias, domain) {
+  const cleanAlias = String(alias || "").trim().toLowerCase();
+  const cleanDomain = String(domain || "").trim().toLowerCase();
+  if (!/^[a-z0-9][a-z0-9._-]{2,30}$/.test(cleanAlias)) {
+    const err = new Error("Alias inválido");
     err.status = 400;
     throw err;
   }
-
-  const address = `${alias}@${domain}`.toLowerCase();
-  try {
-    await freeCustomRequest(env, "/v1/inboxes", {
-      method:"POST",
-      body:JSON.stringify({inbox:address, isTesting:true})
-    });
-  } catch (err) {
-    if (Number(err?.status) !== 409) throw err;
+  if (!grabMailDomainAllowed(cleanDomain)) {
+    const err = new Error("Dominio GrabMail no disponible");
+    err.status = 400;
+    throw err;
   }
-
-  return {provider:"freecustom", address, domain};
+  return {
+    provider:"grabmail",
+    address:`${cleanAlias}@${cleanDomain}`,
+    domain:cleanDomain,
+    retentionDays:5
+  };
 }
 
-function mapFreeCustomMessage(m) {
+function mapGrabMailPreview(m) {
   return {
     id:String(m?.id || ""),
     from:String(m?.from || ""),
@@ -541,27 +509,18 @@ function mapFreeCustomMessage(m) {
     subject:String(m?.subject || "(Sin asunto)"),
     intro:"",
     createdAt:m?.date || "",
-    otp:m?.otp || "",
-    verificationLink:m?.verification_link || ""
+    expiresAt:m?.expires_at || "",
+    seen:m?.seen === true
   };
 }
 
-async function freeCustomMessages(request, env, address) {
-  requireFreeCustomGateway(request, env);
-  const data = await freeCustomRequest(
-    env,
-    `/v1/inboxes/${encodeURIComponent(address)}/messages?limit=50`
-  );
-  return {messages:(data?.data?.messages || []).map(mapFreeCustomMessage)};
+async function grabMailMessages(address) {
+  const data = await grabMailRequest(`/mailbox?address=${encodeURIComponent(address)}&limit=50`);
+  return {messages:(data?.messages || []).map(mapGrabMailPreview)};
 }
 
-async function freeCustomMessage(request, env, address, id) {
-  requireFreeCustomGateway(request, env);
-  const data = await freeCustomRequest(
-    env,
-    `/v1/inboxes/${encodeURIComponent(address)}/messages/${encodeURIComponent(id)}`
-  );
-  const m = data?.data || {};
+async function grabMailMessage(address, id) {
+  const m = await grabMailRequest(`/message/${encodeURIComponent(id)}?mailbox=${encodeURIComponent(address)}`);
   return {message:{
     id:String(m?.id || id),
     from:String(m?.from || ""),
@@ -569,11 +528,47 @@ async function freeCustomMessage(request, env, address, id) {
     subject:String(m?.subject || "(Sin asunto)"),
     text:String(m?.text || ""),
     html:String(m?.html || ""),
-    createdAt:m?.date || "",
-    otp:m?.otp || "",
-    verificationLink:m?.verification_link || ""
+    createdAt:m?.date || ""
   }};
 }
+
+async function diagnoseTempAgency() {
+  try {
+    const session = await tempAgencyCreateClient();
+    const uuid = session.client.uuid;
+    const data = await tempAgencyPost("/domains", {uuid});
+    const domains = Array.isArray(data?.domains) ? data.domains.length : 0;
+    return {ok:true, http:200, domains};
+  } catch (err) {
+    return {
+      ok:false,
+      http:Number(err?.status || 500),
+      domains:0,
+      error:String(err?.message || "Error Temp-Mail Agency").slice(0,180)
+    };
+  }
+}
+
+async function diagnoseDuckMail() {
+  try {
+    const data = await duckRequest("/domains?page=1");
+    const domains = (data?.["hydra:member"] || [])
+      .filter(d => d?.isVerified !== false)
+      .map(d => d?.domain)
+      .filter(Boolean).length;
+    return {ok:true, http:200, domains};
+  } catch (err) {
+    return {
+      ok:false,
+      http:Number(err?.status || 500),
+      domains:0,
+      error:String(err?.message || "Error DuckMail").slice(0,180)
+    };
+  }
+}
+
+const TEMPAGENCY_API = "https://api.temp-mail.agency/api";
+const TEMPAGENCY_APP_UUID = "a5x-cj6a-ka1q";
 
 async function tempAgencyPost(path, fields={}) {
   const body = new URLSearchParams();
@@ -675,6 +670,377 @@ async function tempAgencyMessages(uuid, emailId) {
 async function tempAgencyMessage(uuid, emailId, id) {
   const list = await tempAgencyMessages(uuid, emailId);
   return {message:list.messages.find(m => String(m.id) === String(id)) || {}};
+}
+
+
+const MAILSAC_API = "https://mailsac.com/api";
+const MAILSAC_PUBLIC_DOMAIN = "mailsac.com";
+
+function requireMailsac(env) {
+  if (!env.MAILSAC_API_KEY) {
+    const err = new Error("MAILSAC_API_KEY no configurada");
+    err.status = 503;
+    throw err;
+  }
+}
+
+async function mailsacRequest(env, path, options={}) {
+  requireMailsac(env);
+
+  const res = await fetch(`${MAILSAC_API}${path}`, {
+    ...options,
+    headers:{
+      "Accept":"application/json",
+      "Mailsac-Key":env.MAILSAC_API_KEY,
+      ...(options.headers || {})
+    }
+  });
+
+  const raw = await res.text();
+  let data = null;
+  try { data = raw ? JSON.parse(raw) : null; } catch {}
+
+  if (!res.ok) {
+    const err = new Error(
+      data?.message || data?.error || raw || `Mailsac HTTP ${res.status}`
+    );
+    err.status = res.status;
+    throw err;
+  }
+
+  return data ?? {};
+}
+
+async function mailsacText(env, path) {
+  requireMailsac(env);
+
+  const res = await fetch(`${MAILSAC_API}${path}`, {
+    headers:{
+      "Accept":"text/plain,text/html,*/*",
+      "Mailsac-Key":env.MAILSAC_API_KEY
+    }
+  });
+
+  const raw = await res.text();
+  if (!res.ok) {
+    const err = new Error(raw || `Mailsac HTTP ${res.status}`);
+    err.status = res.status;
+    throw err;
+  }
+  return raw;
+}
+
+async function getMailsacDomains(env) {
+  if (!env.MAILSAC_API_KEY) return [];
+  try {
+    await mailsacRequest(env, "/me");
+    return [MAILSAC_PUBLIC_DOMAIN];
+  } catch {
+    return [];
+  }
+}
+
+function mailsacSender(value) {
+  if (Array.isArray(value)) {
+    const first = value[0] || {};
+    return String(first?.address || first?.name || "");
+  }
+  if (value && typeof value === "object") {
+    return String(value.address || value.name || "");
+  }
+  return String(value || "");
+}
+
+function mapMailsacPreview(m) {
+  return {
+    id:String(m?._id || m?.id || ""),
+    from:mailsacSender(m?.from),
+    sender:mailsacSender(m?.from),
+    subject:String(m?.subject || "(Sin asunto)"),
+    intro:String(m?.snippet || m?.text || "").slice(0,180),
+    createdAt:m?.received || m?.createdAt || m?.date || "",
+    seen:m?.read === true
+  };
+}
+
+async function mailsacCreate(env, alias) {
+  const cleanAlias = String(alias || "").trim().toLowerCase();
+  if (!/^[a-z0-9][a-z0-9._-]{2,30}$/.test(cleanAlias)) {
+    const err = new Error("Alias inválido");
+    err.status = 400;
+    throw err;
+  }
+
+  // Valida la API key antes de entregar una dirección que luego no podamos consultar.
+  await mailsacRequest(env, "/me");
+
+  return {
+    provider:"mailsac",
+    address:`${cleanAlias}@${MAILSAC_PUBLIC_DOMAIN}`,
+    domain:MAILSAC_PUBLIC_DOMAIN,
+    publicInbox:true
+  };
+}
+
+async function mailsacMessages(env, address) {
+  const clean = String(address || "").trim().toLowerCase();
+  if (!clean.endsWith(`@${MAILSAC_PUBLIC_DOMAIN}`)) {
+    const err = new Error("Dirección Mailsac inválida");
+    err.status = 400;
+    throw err;
+  }
+
+  const data = await mailsacRequest(
+    env,
+    `/addresses/${encodeURIComponent(clean)}/messages`
+  );
+  const list = Array.isArray(data) ? data : (data?.messages || []);
+  return {messages:list.map(mapMailsacPreview)};
+}
+
+async function mailsacMessage(env, address, id) {
+  const clean = String(address || "").trim().toLowerCase();
+  const cleanId = String(id || "").trim();
+  if (!clean.endsWith(`@${MAILSAC_PUBLIC_DOMAIN}`) || !cleanId) {
+    const err = new Error("Falta address o id");
+    err.status = 400;
+    throw err;
+  }
+
+  const [meta, textResult, htmlResult] = await Promise.all([
+    mailsacRequest(
+      env,
+      `/addresses/${encodeURIComponent(clean)}/messages/${encodeURIComponent(cleanId)}`
+    ),
+    mailsacText(
+      env,
+      `/text/${encodeURIComponent(clean)}/${encodeURIComponent(cleanId)}`
+    ).catch(() => ""),
+    mailsacText(
+      env,
+      `/body/${encodeURIComponent(clean)}/${encodeURIComponent(cleanId)}`
+    ).catch(() => "")
+  ]);
+
+  return {
+    message:{
+      id:String(meta?._id || meta?.id || cleanId),
+      from:mailsacSender(meta?.from),
+      sender:mailsacSender(meta?.from),
+      subject:String(meta?.subject || "(Sin asunto)"),
+      text:String(textResult || meta?.text || ""),
+      html:String(htmlResult || meta?.html || ""),
+      createdAt:meta?.received || meta?.createdAt || meta?.date || ""
+    }
+  };
+}
+
+async function diagnoseMailsac(env) {
+  if (!env.MAILSAC_API_KEY) {
+    return {
+      ok:false,
+      configured:false,
+      http:0,
+      domains:0,
+      error:"MAILSAC_API_KEY no configurada"
+    };
+  }
+
+  try {
+    await mailsacRequest(env, "/me");
+    return {ok:true, configured:true, http:200, domains:1};
+  } catch (err) {
+    return {
+      ok:false,
+      configured:true,
+      http:Number(err?.status || 500),
+      domains:0,
+      error:String(err?.message || "Error Mailsac").slice(0,180)
+    };
+  }
+}
+
+
+const INBOXES_DEFAULT_HOST = "inboxes-com.p.rapidapi.com";
+
+function inboxesHost(env) {
+  const raw = String(env.INBOXES_RAPIDAPI_HOST || INBOXES_DEFAULT_HOST)
+    .trim()
+    .replace(/^https?:\/\//i, "")
+    .replace(/\/.*$/, "");
+  return raw || INBOXES_DEFAULT_HOST;
+}
+
+function requireInboxes(env) {
+  if (!env.INBOXES_RAPIDAPI_KEY) {
+    const err = new Error("INBOXES_RAPIDAPI_KEY no configurada");
+    err.status = 503;
+    throw err;
+  }
+}
+
+async function inboxesRequest(env, path, options={}) {
+  requireInboxes(env);
+  const host = inboxesHost(env);
+
+  const res = await fetch(`https://${host}${path}`, {
+    ...options,
+    headers:{
+      "Accept":"application/json",
+      "X-RapidAPI-Key":env.INBOXES_RAPIDAPI_KEY,
+      "X-RapidAPI-Host":host,
+      ...(options.headers || {})
+    }
+  });
+
+  const raw = await res.text();
+  let data = null;
+  try { data = raw ? JSON.parse(raw) : null; } catch {}
+
+  if (!res.ok) {
+    const err = new Error(
+      data?.message || data?.error || raw || `Inboxes HTTP ${res.status}`
+    );
+    err.status = res.status;
+    throw err;
+  }
+
+  return data ?? {};
+}
+
+function normalizeInboxesDomains(data) {
+  const raw = Array.isArray(data)
+    ? data
+    : (Array.isArray(data?.domains) ? data.domains :
+      (Array.isArray(data?.items) ? data.items : []));
+
+  return [...new Set(raw
+    .map(item => {
+      if (typeof item === "string") return item;
+      return item?.domain || item?.name || item?.value || "";
+    })
+    .map(domain => String(domain || "").trim().replace(/^@/, "").toLowerCase())
+    .filter(domain => /^[a-z0-9.-]+\.[a-z]{2,}$/i.test(domain))
+  )];
+}
+
+async function getInboxesDomains(env) {
+  if (!env.INBOXES_RAPIDAPI_KEY) return [];
+  try {
+    return normalizeInboxesDomains(await inboxesRequest(env, "/domains"));
+  } catch {
+    return [];
+  }
+}
+
+function mapInboxesPreview(m) {
+  return {
+    id:String(m?.uid || m?.id || m?.messageId || ""),
+    from:String(m?.from || m?.sender || m?.mail_from || ""),
+    sender:String(m?.from || m?.sender || m?.mail_from || ""),
+    subject:String(m?.subject || "(Sin asunto)"),
+    intro:String(m?.text || m?.mail_text || m?.mail_html || "").slice(0,180),
+    text:String(m?.text || m?.mail_text || ""),
+    html:String(m?.html || m?.mail_html || ""),
+    createdAt:m?.date || m?.createdAt || m?.receivedAt || ""
+  };
+}
+
+async function inboxesCreate(env, alias, domain) {
+  const cleanAlias = String(alias || "").trim().toLowerCase();
+  const cleanDomain = String(domain || "").trim().toLowerCase();
+
+  if (!/^[a-z0-9][a-z0-9._-]{2,30}$/.test(cleanAlias)) {
+    const err = new Error("Alias inválido");
+    err.status = 400;
+    throw err;
+  }
+  if (!/^[a-z0-9.-]+\.[a-z]{2,}$/i.test(cleanDomain)) {
+    const err = new Error("Dominio Inboxes inválido");
+    err.status = 400;
+    throw err;
+  }
+
+  const address = `${cleanAlias}@${cleanDomain}`;
+  await inboxesRequest(
+    env,
+    `/inboxes/${encodeURIComponent(address)}`,
+    {method:"POST"}
+  );
+
+  return {
+    provider:"inboxes",
+    address,
+    domain:cleanDomain
+  };
+}
+
+async function inboxesMessages(env, address) {
+  const clean = String(address || "").trim().toLowerCase();
+  if (!clean.includes("@")) {
+    const err = new Error("Dirección Inboxes inválida");
+    err.status = 400;
+    throw err;
+  }
+
+  const data = await inboxesRequest(
+    env,
+    `/inboxes/${encodeURIComponent(clean)}`
+  );
+  const list = Array.isArray(data) ? data : (data?.messages || data?.items || []);
+  return {messages:list.map(mapInboxesPreview)};
+}
+
+async function inboxesMessage(env, id) {
+  const cleanId = String(id || "").trim();
+  if (!cleanId) {
+    const err = new Error("Falta id");
+    err.status = 400;
+    throw err;
+  }
+
+  const m = await inboxesRequest(
+    env,
+    `/messages/${encodeURIComponent(cleanId)}`
+  );
+
+  const mapped = mapInboxesPreview(m);
+  return {message:{...mapped, id:mapped.id || cleanId}};
+}
+
+async function diagnoseInboxes(env) {
+  if (!env.INBOXES_RAPIDAPI_KEY) {
+    return {
+      ok:false,
+      configured:false,
+      http:0,
+      domains:0,
+      host:inboxesHost(env),
+      error:"INBOXES_RAPIDAPI_KEY no configurada"
+    };
+  }
+
+  try {
+    const domains = normalizeInboxesDomains(
+      await inboxesRequest(env, "/domains")
+    );
+    return {
+      ok:true,
+      configured:true,
+      http:200,
+      domains:domains.length,
+      host:inboxesHost(env)
+    };
+  } catch (err) {
+    return {
+      ok:false,
+      configured:true,
+      http:Number(err?.status || 500),
+      domains:0,
+      host:inboxesHost(env),
+      error:String(err?.message || "Error Inboxes").slice(0,180)
+    };
+  }
 }
 
 const MAILSLURP_API = "https://api.mailslurp.com";
@@ -894,13 +1260,17 @@ export default {
       if (url.pathname === "/health") {
         return json({
           ok:true,
-          service:"Correo Temporal API v22",
+          service:"Correo Temporal API v24",
           capabilities:{
-            guerrillaCookieSession:true,
             mailnesia:false,
-            freecustom:!!env.FREECUSTOM_API_KEY,
-            tempagency:true,
+            guerrilla:false,
+            freecustom:false,
+            grabmail:true,
+            tempagency:false,
+            mailsac:!!env.MAILSAC_API_KEY,
+            inboxes:!!env.INBOXES_RAPIDAPI_KEY,
             duckmail:true,
+            dropmailClient:true,
             mailslurp:!!env.MAILSLURP_API_KEY,
             mailslurpWait:!!env.MAILSLURP_API_KEY
           }
@@ -908,40 +1278,86 @@ export default {
       }
 
       if (url.pathname === "/domains") {
-        const [freecustom, tempagency, guerrilla, duckmail] = await Promise.all([
-          getFreeCustomDomains(env),
-          getTempAgencyDomains(),
-          getGuerrillaDomains(),
+        const [mailsac, inboxes, duckmail] = await Promise.all([
+          getMailsacDomains(env),
+          getInboxesDomains(env),
           getDuckMailDomains()
         ]);
-        return json({freecustom, tempagency, guerrilla, duckmail});
+        return json({
+          grabmail:[...GRABMAIL_PUBLIC_DOMAINS],
+          mailsac,
+          inboxes,
+          duckmail
+        });
       }
 
-      if (url.pathname === "/freecustom/create") {
+      if (url.pathname === "/diagnostics/providers") {
+        const [mailsac, inboxes, duckmail] = await Promise.all([
+          diagnoseMailsac(env),
+          diagnoseInboxes(env),
+          diagnoseDuckMail()
+        ]);
+        return json({
+          grabmail:{ok:true, http:200, domains:GRABMAIL_PUBLIC_DOMAINS.length, retentionDays:5},
+          mailsac,
+          inboxes,
+          duckmail,
+          dropmail:{mode:"client-token", note:"Se valida desde la app con token af_"},
+          mailslurp:{configured:!!env.MAILSLURP_API_KEY, wait:!!env.MAILSLURP_API_KEY}
+        });
+      }
+
+      if (url.pathname === "/grabmail/create") {
         const alias = String(url.searchParams.get("alias") || "").trim().toLowerCase();
         const domain = String(url.searchParams.get("domain") || "").trim().toLowerCase();
-        if (!/^[a-z0-9][a-z0-9._-]{2,30}$/.test(alias)) return json({error:"Alias inválido"}, 400);
-        return json(await freeCustomCreate(request, env, alias, domain));
+        return json(grabMailCreate(alias, domain));
       }
 
-      if (url.pathname === "/freecustom/messages") {
+      if (url.pathname === "/grabmail/messages") {
         const address = String(url.searchParams.get("address") || "").trim().toLowerCase();
-        if (!address.includes("@")) return json({error:"Dirección inválida"}, 400);
-        return json(await freeCustomMessages(request, env, address));
+        const domain = address.split("@")[1] || "";
+        if (!address.includes("@") || !grabMailDomainAllowed(domain)) return json({error:"Dirección GrabMail inválida"}, 400);
+        return json(await grabMailMessages(address));
       }
 
-      if (url.pathname === "/freecustom/message") {
+      if (url.pathname === "/grabmail/message") {
         const address = String(url.searchParams.get("address") || "").trim().toLowerCase();
         const id = String(url.searchParams.get("id") || "").trim();
-        if (!address.includes("@") || !id) return json({error:"Falta address o id"}, 400);
-        return json(await freeCustomMessage(request, env, address, id));
+        const domain = address.split("@")[1] || "";
+        if (!address.includes("@") || !grabMailDomainAllowed(domain) || !id) return json({error:"Falta address o id"}, 400);
+        return json(await grabMailMessage(address, id));
       }
 
-      if (url.pathname === "/tempagency/create") {
+      if (url.pathname === "/mailsac/create") {
+        const alias = String(url.searchParams.get("alias") || "").trim().toLowerCase();
+        return json(await mailsacCreate(env, alias));
+      }
+
+      if (url.pathname === "/mailsac/messages") {
+        const address = String(url.searchParams.get("address") || "").trim().toLowerCase();
+        return json(await mailsacMessages(env, address));
+      }
+
+      if (url.pathname === "/mailsac/message") {
+        const address = String(url.searchParams.get("address") || "").trim().toLowerCase();
+        const id = String(url.searchParams.get("id") || "").trim();
+        return json(await mailsacMessage(env, address, id));
+      }
+
+      if (url.pathname === "/inboxes/create") {
         const alias = String(url.searchParams.get("alias") || "").trim().toLowerCase();
         const domain = String(url.searchParams.get("domain") || "").trim().toLowerCase();
-        if (!/^[a-z0-9][a-z0-9._-]{2,30}$/.test(alias)) return json({error:"Alias inválido"}, 400);
-        return json(await tempAgencyCreate(alias, domain));
+        return json(await inboxesCreate(env, alias, domain));
+      }
+
+      if (url.pathname === "/inboxes/messages") {
+        const address = String(url.searchParams.get("address") || "").trim().toLowerCase();
+        return json(await inboxesMessages(env, address));
+      }
+
+      if (url.pathname === "/inboxes/message") {
+        const id = String(url.searchParams.get("id") || "").trim();
+        return json(await inboxesMessage(env, id));
       }
 
       if (url.pathname === "/tempagency/messages") {
@@ -1027,21 +1443,6 @@ export default {
         const messages = await mailnesiaMessages(address);
         const message = messages.find(m => String(m.id) === String(id)) || {};
         return json({message});
-      }
-
-      if (url.pathname === "/guerrilla/create") {
-        const alias = String(url.searchParams.get("alias") || "").trim();
-        const domain = String(url.searchParams.get("domain") || "sharklasers.com").trim();
-
-        if (!/^[a-z0-9][a-z0-9._-]{2,30}$/i.test(alias)) {
-          return json({error:"Alias inválido"}, 400);
-        }
-        if (!GUERRILLA_FALLBACK.includes(domain)) {
-          const live = await getGuerrillaDomains();
-          if (!live.includes(domain)) return json({error:"Dominio Guerrilla inválido"}, 400);
-        }
-
-        return json(await guerrillaCreate(request, alias, domain));
       }
 
       if (url.pathname === "/guerrilla/messages") {
