@@ -579,7 +579,7 @@
       <div>
         <div class="eyebrow">Configuración</div>
         <h3 id="settingsTitle">Gestores de correo</h3>
-        <div class="standalone-note">Versión <b id="appVersionLabel">v32.3</b></div>
+        <div class="standalone-note">Versión <b id="appVersionLabel">v32.4</b></div>
       </div>
       <button id="closeSettingsBtn" class="icon-btn" type="button">✕</button>
     </div>
@@ -682,7 +682,7 @@
   const DROPMAIL_TOKEN_KEY = 'correo_temporal_dropmail_token_v1';
   const WORKER_URL_KEY = 'correo_temporal_worker_url_v1';
   const DEFAULT_WORKER_URL = 'https://correo-temp-api.djkados11.workers.dev';
-  const APP_VERSION = '32.3';
+  const APP_VERSION = '32.4';
   const STORAGE_KEY = 'correo_temporal_mail123_v2';
   const HISTORY_KEY = 'correo_temporal_history_v2';
   const LEGACY_HISTORY_KEY = 'correo_temporal_history_v1';
@@ -1800,7 +1800,7 @@
         `Mail.gw: @${domain}. Es útil para verificaciones rápidas.`;
     }else if (provider === 'mailslurp'){
       el.domainNote.textContent =
-        'MailSlurp: bandeja privada y persistente para pruebas largas. La app reutiliza la misma dirección en lugar de crear una nueva cada vez.';
+        'MailSlurp: bandeja privada y persistente para pruebas largas. Cada “Nuevo correo” crea otra bandeja; las anteriores se pueden recuperar escribiendo la dirección completa y tocando Actualizar.';
     }else if (provider === 'duckmail'){
       el.domainNote.textContent =
         `DuckMail: @${domain}. La cuenta se crea por 3 días y la bandeja se protege con token.`;
@@ -2085,7 +2085,7 @@
       return createAccountMailbox(provider, domain);
     }
     if (provider === 'mailslurp'){
-      const data = await mailSlurpWorkerJSON('/mailslurp/long-inbox');
+      const data = await mailSlurpWorkerJSON('/mailslurp/new-long-inbox');
 
       if (!data?.address || !data?.inboxId){
         throw new Error('MailSlurp no devolvió una bandeja persistente válida.');
@@ -2549,7 +2549,7 @@
     return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
   }
 
-  function syncAddressFromInput(){
+  async function syncAddressFromInput(){
     const typed = normalizeEmail(el.emailAddress.value);
     if (!isValidEmail(typed)) {
       throw new Error('Escribe un correo temporal válido.');
@@ -2557,28 +2557,93 @@
 
     if (!box || box.address !== typed){
       const saved = findHistoryBox(typed);
+
       if (saved){
         box = {...saved, address:typed};
       }else{
-        const provider = inferProviderFromAddress(typed);
-        if (provider === 'mailtm' || provider === 'mailgw' || provider === 'duckmail' || provider === 'tempagency' || provider === 'mailslurp' || provider === 'guerrilla' || provider === 'dropmail'){
-          throw new Error(`Para volver a abrir un correo de ${providerLabel(provider)} debes haberlo generado antes en este mismo dispositivo.`);
+        const domain = typed.split('@')[1] || '';
+        const localPart = typed.split('@')[0] || '';
+        let provider = inferProviderFromAddress(typed);
+        let resolved = null;
+
+        // Inboxes permite volver a activar la misma dirección de sus dominios.
+        if (provider === 'inboxes'){
+          const data = await workerJSON(
+            `/inboxes/create?alias=${encodeURIComponent(localPart)}&domain=${encodeURIComponent(domain)}`
+          );
+          resolved = {
+            provider:'inboxes',
+            address:normalizeEmail(data?.address || typed),
+            domain,
+            createdAt:Date.now()
+          };
         }
-        box = {
-          address:typed,
-          provider:['mailnesia','grabmail','mailsac','inboxes','mail123'].includes(provider) ? provider : 'mail123',
-          domain:typed.split('@')[1] || '',
-          createdAt:Date.now()
-        };
+
+        // Los dominios del pool de MailSlurp cambian y no siempre se pueden
+        // identificar solo por el dominio. Si la dirección no pertenece a un
+        // proveedor conocido, la buscamos en la cuenta MailSlurp por email.
+        const isKnownMail123Domain =
+          mail123Domains.includes(domain) || MAIL123_FALLBACK_DOMAINS.includes(domain);
+
+        if (
+          !resolved &&
+          provider === 'mail123' &&
+          !isKnownMail123Domain &&
+          getMailSlurpGatewayKey()
+        ){
+          try{
+            const data = await mailSlurpWorkerJSON(
+              `/mailslurp/lookup?address=${encodeURIComponent(typed)}`
+            );
+
+            if (data?.inboxId){
+              resolved = {
+                provider:'mailslurp',
+                address:normalizeEmail(data.address || typed),
+                domain:normalizeEmail(data.address || typed).split('@')[1] || domain,
+                inboxId:data.inboxId,
+                expiresAt:data.expiresAt || '',
+                createdAt:data.createdAt ? new Date(data.createdAt).getTime() : Date.now()
+              };
+            }
+          }catch(err){
+            // 404 significa que esa dirección no pertenece a esta cuenta
+            // MailSlurp. En ese caso seguimos con la detección normal.
+            if (Number(err?.status || 0) !== 404) throw err;
+          }
+        }
+
+        if (!resolved){
+          if (
+            provider === 'mailtm' ||
+            provider === 'mailgw' ||
+            provider === 'duckmail' ||
+            provider === 'tempagency' ||
+            provider === 'mailslurp' ||
+            provider === 'guerrilla' ||
+            provider === 'dropmail'
+          ){
+            throw new Error(`Para volver a abrir un correo de ${providerLabel(provider)} debes haberlo generado antes en este mismo dispositivo.`);
+          }
+
+          resolved = {
+            address:typed,
+            provider:['mailnesia','grabmail','mailsac','inboxes','mail123'].includes(provider) ? provider : 'mail123',
+            domain,
+            createdAt:Date.now()
+          };
+        }
+
+        box = resolved;
       }
 
       save();
       rememberAddress(typed);
-      el.emailAddress.value = typed;
+      el.emailAddress.value = box.address || typed;
     }
 
     if (!box.provider) box.provider = inferProviderFromAddress(typed);
-    return typed;
+    return normalizeEmail(box.address || typed);
   }
 
 
@@ -2663,7 +2728,7 @@
     refreshInFlight = true;
     busy(el.refreshBtn, true, 'Actualizando');
     try{
-      const typedAddress = syncAddressFromInput();
+      const typedAddress = await syncAddressFromInput();
       const rawMessages = await fetchProviderMessages();
       const messages = await enrichMessagesWithOtp(rawMessages);
 
@@ -3387,7 +3452,7 @@
   async function newMailbox(){
     const accepted = await pageConfirm({
       title:'¿Generar un correo nuevo?',
-      text:'Dejarás de ver la bandeja actual en esta página, pero seguirá disponible en Correos recientes mientras el proveedor la conserve.',
+      text:'Se generará otra dirección. La bandeja actual seguirá disponible en Correos recientes y, en MailSlurp, también podrás recuperarla más adelante escribiendo el correo completo y tocando Actualizar.',
       confirmLabel:'Generar nuevo correo',
       cancelLabel:'Cancelar'
     });

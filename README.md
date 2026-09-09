@@ -1,4 +1,4 @@
-# Correo Temporal Mini v32.3 — PWA
+# Correo Temporal Mini v32.4 — PWA
 
 Esta versión está preparada para usarse e instalarse tanto en PC como en celular.
 
@@ -464,3 +464,12 @@ MailSlurp mantiene su espera directa sin polling.
 - Si Clipboard API falla, selecciona automáticamente la clave para copiarla con Ctrl+C.
 - Si no existe una clave local, el mensaje indica que debe pegarse la misma `MAILSLURP_GATEWAY_KEY` configurada en Cloudflare.
 - No cambia el Worker API v26 ni ninguna API key.
+
+
+## Cambio v32.4 — MailSlurp recuperable por dirección
+- `Nuevo correo` en MailSlurp crea una bandeja persistente nueva usando el pool de dominios.
+- Las bandejas anteriores no se pierden: escribe la dirección completa y toca **Actualizar**.
+- El Worker usa `GET /inboxes/byEmailAddress` de MailSlurp para recuperar el `inboxId`.
+- Inboxes.com permite reactivar una dirección conocida escribiéndola y tocando **Actualizar**.
+- Worker: **Correo Temporal API v27**.
+- Frontend: **v32.4**.
